@@ -28,6 +28,8 @@ export default function SimuladorDetalleScreen() {
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [engine, setEngine] = useState<SimulationEngine | null>(null);
   const [currentAnswers, setCurrentAnswers] = useState<Answer[]>([]);
+  const [selectedAnswer, setSelectedAnswer] = useState<Answer | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +37,38 @@ export default function SimuladorDetalleScreen() {
   useEffect(() => {
     loadScenario();
   }, [scenarioId]);
+
+  useEffect(() => {
+    if (!engine || selectedAnswer) {
+      return;
+    }
+
+    const question = engine.getCurrentQuestion();
+
+    if (!question || question.timeLimit === undefined) {
+      setRemainingTime(null);
+      return;
+    }
+
+    setRemainingTime(question.timeLimit);
+
+    const interval = setInterval(() => {
+      setRemainingTime((current) => {
+        if (current === null) {
+          return null;
+        }
+
+        if (current <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [engine, selectedAnswer]);
 
   async function loadScenario() {
     setLoading(true);
@@ -77,14 +111,31 @@ export default function SimuladorDetalleScreen() {
       return;
     }
 
+    const answer = currentAnswers.find(
+      (item) => item.id === answerId
+    );
+
+    if (!answer) {
+      return;
+    }
+
     try {
       engine.answer(answerId);
 
-      setEngine(engine);
-      setCurrentAnswers(engine.getCurrentAnswers());
+      setSelectedAnswer(answer);
     } catch {
       setError('No se pudo procesar la respuesta.');
     }
+  }
+
+  function handleContinue() {
+    if (!engine) {
+      return;
+    }
+
+    setSelectedAnswer(null);
+    setEngine(engine);
+    setCurrentAnswers(engine.getCurrentAnswers());
   }
 
   if (loading) {
@@ -220,6 +271,24 @@ export default function SimuladorDetalleScreen() {
           </View>
 
           <View style={styles.questionCard}>
+            {remainingTime !== null && (
+              <View
+                style={[
+                  styles.timerCard,
+                  remainingTime <= 10 && styles.timerDanger,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.timerText,
+                    remainingTime <= 10 && styles.timerTextDanger,
+                  ]}
+                >
+                  ⏱ {remainingTime} segundos
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.questionText}>
               {question.text}
             </Text>
@@ -233,9 +302,113 @@ export default function SimuladorDetalleScreen() {
             )}
           </View>
 
-          <Text style={styles.sectionTitle}>
-            Selecciona una respuesta
-          </Text>
+          {!selectedAnswer && (
+            <>
+              <Text style={styles.sectionTitle}>
+                Selecciona una respuesta
+              </Text>
+
+              {currentAnswers.map((answer, index) => (
+                <Pressable
+                  key={answer.id}
+                  style={({ pressed }) => [
+                    styles.answerCard,
+                    pressed && styles.answerPressed,
+                  ]}
+                  onPress={() => handleAnswer(answer.id)}
+                >
+                  <View style={styles.answerBullet}>
+                    <Text style={styles.answerBulletText}>
+                      {String.fromCharCode(65 + index)}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.answerText}>
+                    {answer.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </>
+          )}
+
+          {selectedAnswer && (
+            <View
+              style={[
+                styles.feedbackCard,
+                selectedAnswer.correct
+                  ? styles.feedbackCorrect
+                  : styles.feedbackIncorrect,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.feedbackTitle,
+                  selectedAnswer.correct
+                    ? styles.feedbackTitleCorrect
+                    : styles.feedbackTitleIncorrect,
+                ]}
+              >
+                {selectedAnswer.correct
+                  ? '✓ Respuesta correcta'
+                  : '✕ Respuesta incorrecta'}
+              </Text>
+
+              <Text style={styles.feedbackPoints}>
+                {selectedAnswer.points > 0
+                  ? `+${selectedAnswer.points} puntos`
+                  : '0 puntos'}
+              </Text>
+
+              <View style={styles.feedbackSection}>
+                <Text style={styles.feedbackLabel}>
+                  Retroalimentación
+                </Text>
+
+                <Text style={styles.feedbackText}>
+                  {selectedAnswer.feedback}
+                </Text>
+              </View>
+
+              {selectedAnswer.consequence && (
+                <View style={styles.consequenceCard}>
+                  <Text style={styles.consequenceLabel}>
+                    Consecuencia
+                  </Text>
+
+                  <Text style={styles.consequenceText}>
+                    {selectedAnswer.consequence}
+                  </Text>
+                </View>
+              )}
+
+              {selectedAnswer.criticalError && (
+                <View style={styles.criticalErrorCard}>
+                  <Text style={styles.criticalErrorTitle}>
+                    ⚠ Error crítico
+                  </Text>
+
+                  <Text style={styles.criticalErrorText}>
+                    Esta decisión puede finalizar la simulación debido
+                    a la gravedad del error.
+                  </Text>
+                </View>
+              )}
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.continueButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={handleContinue}
+              >
+                <Text style={styles.continueButtonText}>
+                  {selectedAnswer.criticalError
+                    ? 'Ver resultado'
+                    : 'Continuar →'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {currentAnswers.map((answer, index) => (
             <Pressable
@@ -551,6 +724,29 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
 
+  timerCard: {
+    alignSelf: 'flex-start',
+    marginBottom: spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+  },
+
+  timerDanger: {
+    backgroundColor: '#FEE2E2',
+  },
+
+  timerText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+  },
+
+  timerTextDanger: {
+    color: colors.danger,
+  },
+
   questionText: {
     fontSize: 19,
     lineHeight: 28,
@@ -615,6 +811,116 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: colors.text,
+  },
+
+  feedbackCard: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+
+  feedbackCorrect: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#BBF7D0',
+  },
+
+  feedbackIncorrect: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+  },
+
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+  },
+
+  feedbackTitleCorrect: {
+    color: colors.success,
+  },
+
+  feedbackTitleIncorrect: {
+    color: colors.danger,
+  },
+
+  feedbackPoints: {
+    marginTop: spacing.sm,
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+  },
+
+  feedbackSection: {
+    marginTop: spacing.lg,
+  },
+
+  feedbackLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+  },
+
+  feedbackText: {
+    marginTop: spacing.xs,
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.text,
+  },
+
+  consequenceCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: 14,
+    backgroundColor: '#FFFBEB',
+  },
+
+  consequenceLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.warning,
+  },
+
+  consequenceText: {
+    marginTop: spacing.xs,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.text,
+  },
+
+  criticalErrorCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: 14,
+    backgroundColor: '#7F1D1D',
+  },
+
+  criticalErrorTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: colors.white,
+  },
+
+  criticalErrorText: {
+    marginTop: spacing.xs,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.white,
+  },
+
+  continueButton: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  continueButtonText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '800',
   },
 
   resultCard: {

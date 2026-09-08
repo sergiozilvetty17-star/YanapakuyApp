@@ -133,7 +133,7 @@ export default function SimuladorScreen() {
               ]}
               onPress={() =>
                 router.push({
-                  pathname: '/simulador/[id]/index',
+                  pathname: '/simulador/[id]',
                   params: {
                     id: scenario.id.toString(),
                   },

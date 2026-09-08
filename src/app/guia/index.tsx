@@ -105,7 +105,7 @@ export default function GuiaScreen() {
                   styles.card,
                   pressed && styles.cardPressed,
                 ]}
-                onPress={() => router.push({ pathname: '/guia/[id]/index', params: { id: emergency.id.toString() } })}
+                onPress={() => router.push({ pathname: '/guia/[id]', params: { id: emergency.id.toString() } })}
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.iconContainer}>
