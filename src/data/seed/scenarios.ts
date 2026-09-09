@@ -6,7 +6,7 @@ export const scenarios: Scenario[] = [
     emergencyId: 1,
     title: 'Accidente en una avenida',
     description:
-      'Vas caminando por una avenida cuando observas una motocicleta que acaba de sufrir un accidente. Hay una persona en el suelo y el tráfico continúa circulando.',
+      'Vas caminando por una avenida cuando observas una motocicleta que acaba de sufrir un accidente. Hay una persona en el suelo y el trÃ¡fico continÃºa circulando.',
     difficulty: 'medio',
     estimatedTime: 180,
     requiresEmergencyCall: true,
@@ -15,9 +15,9 @@ export const scenarios: Scenario[] = [
   {
     id: 2,
     emergencyId: 2,
-    title: 'Quemadura doméstica',
+    title: 'Quemadura domÃ¡stica',
     description:
-      'Una persona acaba de sufrir una quemadura mientras cocinaba. La lesión se encuentra en uno de sus brazos.',
+      'Una persona acaba de sufrir una quemadura mientras cocinaba. La lesiÃ³n se encuentra en uno de sus brazos.',
     difficulty: 'facil',
     estimatedTime: 120,
     requiresEmergencyCall: false,

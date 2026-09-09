@@ -1,4 +1,4 @@
-import type { Answer, Question, Scenario } from '@/domain/models';
+import type { Scenario } from '@/domain/models';
 
 export interface SimulationState {
   scenario: Scenario;
@@ -13,4 +13,5 @@ export interface SimulationState {
   emergencyCallRequired: boolean;
   emergencyCallCompleted: boolean;
   selectedAnswers: number[];
+  timedOut: boolean;
 }

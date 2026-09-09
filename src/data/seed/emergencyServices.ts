@@ -5,16 +5,16 @@ export const emergencyServices: EmergencyService[] = [
     id: 1,
     name: 'Ambulancia',
     description:
-      'Servicio destinado a atender y trasladar personas que requieren asistencia médica de emergencia.',
+      'Servicio destinado a atender y trasladar personas que requieren asistencia mÃ©dica de emergencia.',
     phoneNumber: '',
     type: 'ambulancia',
     active: true,
   },
   {
     id: 2,
-    name: 'Policía',
+    name: 'PolicÃ­a',
     description:
-      'Servicio de seguridad y atención de situaciones que requieren intervención policial.',
+      'Servicio de seguridad y atenciÃ³n de situaciones que requieren intervenciÃ³n policial.',
     phoneNumber: '',
     type: 'policia',
     active: true,

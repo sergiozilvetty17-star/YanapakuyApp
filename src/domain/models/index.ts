@@ -6,3 +6,6 @@ export * from './Question';
 export * from './Answer';
 export * from './EmergencyService';
 export * from './SimulationResult';
+export type { SimulatedCall } from './SimulatedCall';
+
+export type { SimulatedCallQuestion, SimulatedCallOption } from './SimulatedCallQuestion';

@@ -48,23 +48,23 @@ export class SimulationEvaluator {
     criticalErrors: number
   ): string {
     if (criticalErrors > 0) {
-      return 'La simulación terminó debido a una decisión crítica. Revisa las recomendaciones antes de volver a intentarlo.';
+      return 'La simulaciÃ³n terminÃ³ debido a una decisiÃ³n crÃ­tica. Revisa las recomendaciones antes de volver a intentarlo.';
     }
 
     const percentage = this.calculatePercentage(score, maxScore);
 
     if (percentage >= 90) {
-      return 'Excelente actuación. Demostraste una respuesta adecuada ante la emergencia.';
+      return 'Excelente actuaciÃ³n. Demostraste una respuesta adecuada ante la emergencia.';
     }
 
     if (percentage >= 70) {
-      return 'Buen trabajo. Con algunas mejoras puedes responder todavía mejor ante una emergencia.';
+      return 'Buen trabajo. Con algunas mejoras puedes responder todavÃ­a mejor ante una emergencia.';
     }
 
     if (percentage >= 50) {
-      return 'Actuación regular. Es recomendable repasar la guía y volver a realizar la simulación.';
+      return 'ActuaciÃ³n regular. Es recomendable repasar la guÃ­a y volver a realizar la simulaciÃ³n.';
     }
 
-    return 'Necesitas reforzar tus conocimientos de primeros auxilios antes de afrontar una situación similar.';
+    return 'Necesitas reforzar tus conocimientos de primeros auxilios antes de afrontar una situaciÃ³n similar.';
   }
 }

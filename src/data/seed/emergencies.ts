@@ -3,10 +3,10 @@ import type { Emergency } from '@/domain/models';
 export const emergencies: Emergency[] = [
   {
     id: 1,
-    name: 'Accidente de tr·nsito',
+    name: 'Accidente de tr√°nsito',
     category: 'Traumatismos',
     description:
-      'SituaciÛn en la que una o m·s personas pueden presentar lesiones como consecuencia de un accidente vehicular.',
+      'Situaci√≥n en la que una o m√°s personas pueden presentar lesiones como consecuencia de un accidente vehicular.',
     riskLevel: 'critico',
     active: true,
   },
@@ -15,7 +15,7 @@ export const emergencies: Emergency[] = [
     name: 'Quemadura',
     category: 'Lesiones',
     description:
-      'LesiÛn producida por contacto con calor, sustancias quÌmicas, electricidad u otras fuentes.',
+      'Lesi√≥n producida por contacto con calor, sustancias qu√©micas, electricidad u otras fuentes.',
     riskLevel: 'alto',
     active: true,
   },
@@ -24,7 +24,7 @@ export const emergencies: Emergency[] = [
     name: 'Atragantamiento',
     category: 'Emergencias respiratorias',
     description:
-      'ObstrucciÛn parcial o completa de las vÌas respiratorias por un objeto o alimento.',
+      'Obstrucci√≥n parcial o completa de las v√≠as respiratorias por un objeto o alimento.',
     riskLevel: 'critico',
     active: true,
   },
@@ -33,7 +33,7 @@ export const emergencies: Emergency[] = [
     name: 'Desmayo',
     category: 'Alteraciones de conciencia',
     description:
-      'PÈrdida temporal de la conciencia que puede tener diferentes causas.',
+      'P√©rdida temporal de la conciencia que puede tener diferentes causas.',
     riskLevel: 'medio',
     active: true,
   },

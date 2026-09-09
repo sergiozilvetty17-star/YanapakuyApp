@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,7 @@ import { GetEmergencyGuide } from '@/domain/useCases';
 import { InMemoryGuideRepository } from '@/data/repositories';
 import type { Guide, GuideStep } from '@/domain/models';
 import { colors, spacing, typography } from '@/theme';
+import { guideMedia } from '@/data/guideMedia';
 
 const guideRepository = new InMemoryGuideRepository();
 const getEmergencyGuide = new GetEmergencyGuide(guideRepository);
@@ -55,7 +57,10 @@ export default function GuiaDetalleScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loading}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator
+            size="large"
+            color={colors.primary}
+          />
 
           <Text style={styles.loadingText}>
             Cargando guía...
@@ -69,7 +74,9 @@ export default function GuiaDetalleScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.notFound}>
-          <Text style={styles.notFoundIcon}>!</Text>
+          <Text style={styles.notFoundIcon}>
+            !
+          </Text>
 
           <Text style={styles.notFoundTitle}>
             Guía no encontrada
@@ -81,7 +88,11 @@ export default function GuiaDetalleScreen() {
 
           <Pressable
             style={styles.primaryButton}
-            onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace('/')
+            }
           >
             <Text style={styles.primaryButtonText}>
               Volver
@@ -98,13 +109,25 @@ export default function GuiaDetalleScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Volver</Text>
+        {/* BOTÓN VOLVER */}
+        <Pressable
+          onPress={() =>
+            router.canGoBack()
+              ? router.back()
+              : router.replace('/')
+          }
+        >
+          <Text style={styles.back}>
+            ‹ Volver
+          </Text>
         </Pressable>
 
+        {/* ENCABEZADO */}
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Text style={styles.icon}>+</Text>
+            <Text style={styles.icon}>
+              +
+            </Text>
           </View>
 
           <Text style={styles.title}>
@@ -116,13 +139,17 @@ export default function GuiaDetalleScreen() {
           </Text>
         </View>
 
+        {/* QUÉ HACER */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Qué hacer
           </Text>
 
           {guide.whatToDo.map((item, index) => (
-            <View key={`todo-${index}`} style={styles.item}>
+            <View
+              key={`todo-${index}`}
+              style={styles.item}
+            >
               <View style={styles.number}>
                 <Text style={styles.numberText}>
                   {index + 1}
@@ -136,13 +163,17 @@ export default function GuiaDetalleScreen() {
           ))}
         </View>
 
+        {/* QUÉ NO HACER */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Qué NO hacer
           </Text>
 
           {guide.whatNotToDo.map((item, index) => (
-            <View key={`not-${index}`} style={styles.notItem}>
+            <View
+              key={`not-${index}`}
+              style={styles.notItem}
+            >
               <Text style={styles.notIcon}>
                 ×
               </Text>
@@ -154,6 +185,7 @@ export default function GuiaDetalleScreen() {
           ))}
         </View>
 
+        {/* CUÁNDO LLAMAR */}
         <View style={styles.callCard}>
           <Text style={styles.callTitle}>
             ☎ Cuándo llamar
@@ -164,6 +196,7 @@ export default function GuiaDetalleScreen() {
           </Text>
         </View>
 
+        {/* PASOS */}
         {steps.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
@@ -171,9 +204,14 @@ export default function GuiaDetalleScreen() {
             </Text>
 
             {steps
+              .slice()
               .sort((a, b) => a.order - b.order)
               .map((step) => (
-                <View key={step.id} style={styles.stepCard}>
+                <View
+                  key={step.id}
+                  style={styles.stepCard}
+                >
+                  {/* CABECERA DEL PASO */}
                   <View style={styles.stepHeader}>
                     <View style={styles.stepNumber}>
                       <Text style={styles.stepNumberText}>
@@ -186,12 +224,29 @@ export default function GuiaDetalleScreen() {
                     </Text>
                   </View>
 
+                  {/* IMAGEN DEL PASO */}
+                  {guideMedia[step.id] && (
+                    <View style={styles.imageContainer}>
+                      <Image
+                        source={guideMedia[step.id]}
+                        style={styles.stepImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  )}
+
+                  {/* DESCRIPCIÓN */}
                   <Text style={styles.stepDescription}>
                     {step.description}
                   </Text>
 
+                  {/* IMPORTANTE */}
                   {step.important && (
                     <View style={styles.importantBadge}>
+                      <Text style={styles.importantIcon}>
+                        !
+                      </Text>
+
                       <Text style={styles.importantText}>
                         Importante
                       </Text>
@@ -202,6 +257,7 @@ export default function GuiaDetalleScreen() {
           </View>
         )}
 
+        {/* ADVERTENCIA FINAL */}
         <View style={styles.warning}>
           <Text style={styles.warningTitle}>
             ⚠ Importante
@@ -248,6 +304,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
 
+  /* =========================
+     ENCABEZADO
+     ========================= */
+
   header: {
     backgroundColor: colors.surface,
     borderRadius: 20,
@@ -284,6 +344,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
 
+  /* =========================
+     SECCIONES
+     ========================= */
+
   section: {
     marginTop: spacing.lg,
   },
@@ -293,6 +357,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
   },
+
+  /* =========================
+     QUÉ HACER
+     ========================= */
 
   item: {
     flexDirection: 'row',
@@ -328,6 +396,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
+  /* =========================
+     QUÉ NO HACER
+     ========================= */
+
   notItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -346,6 +418,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginRight: spacing.sm,
   },
+
+  /* =========================
+     CUÁNDO LLAMAR
+     ========================= */
 
   callCard: {
     marginTop: spacing.lg,
@@ -369,13 +445,18 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
+  /* =========================
+     TARJETA DE PASO
+     ========================= */
+
   stepCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
+    borderRadius: 18,
     padding: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
 
   stepHeader: {
@@ -384,9 +465,9 @@ const styles = StyleSheet.create({
   },
 
   stepNumber: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.secondary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -395,31 +476,76 @@ const styles = StyleSheet.create({
 
   stepNumberText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
 
   stepTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.text,
   },
 
+  /* =========================
+     IMAGEN
+     ========================= */
+
+  imageContainer: {
+    width: '100%',
+    height: 230,
+    marginTop: spacing.md,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  stepImage: {
+    width: '100%',
+    height: '100%',
+  },
+
+  /* =========================
+     DESCRIPCIÓN
+     ========================= */
+
   stepDescription: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     fontSize: 14,
     lineHeight: 21,
     color: colors.textSecondary,
   },
 
+  /* =========================
+     IMPORTANTE
+     ========================= */
+
   importantBadge: {
     alignSelf: 'flex-start',
-    marginTop: spacing.sm,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 10,
     backgroundColor: '#FEF3C7',
+  },
+
+  importantIcon: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginRight: 6,
+    backgroundColor: '#F59E0B',
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '900',
   },
 
   importantText: {
@@ -427,6 +553,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#92400E',
   },
+
+  /* =========================
+     ADVERTENCIA
+     ========================= */
 
   warning: {
     marginTop: spacing.lg,
@@ -449,6 +579,10 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: '#7C2D12',
   },
+
+  /* =========================
+     NO ENCONTRADO
+     ========================= */
 
   notFound: {
     flex: 1,

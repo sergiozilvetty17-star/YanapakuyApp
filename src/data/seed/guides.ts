@@ -4,7 +4,7 @@ export const guides: Guide[] = [
   {
     id: 1,
     emergencyId: 1,
-    title: 'Accidente de tr醤sito',
+    title: 'Accidente de tr谩nsito',
     summary:
       'Antes de ayudar, verifica que el lugar sea seguro y evita exponerte a nuevos peligros.',
     whatToDo: [
@@ -17,30 +17,30 @@ export const guides: Guide[] = [
     whatNotToDo: [
       'No ingresar a una zona peligrosa sin evaluar los riesgos.',
       'No mover innecesariamente a una persona lesionada.',
-      'No retirar un casco a una persona accidentada salvo que exista una raz髇 de emergencia y se cuente con entrenamiento adecuado.',
+      'No retirar un casco a una persona accidentada salvo que exista una raz贸n de emergencia y se cuente con entrenamiento adecuado.',
       'No administrar medicamentos o alimentos.',
     ],
     whenToCall:
-      'Solicita ayuda profesional ante lesiones graves, p閞dida de conciencia, dificultad respiratoria, sangrado importante o cualquier situaci髇 que pueda poner en peligro la vida.',
+      'Solicita ayuda profesional ante lesiones graves, p茅rdida de conciencia, dificultad respiratoria, sangrado importante o cualquier situaci贸n que pueda poner en peligro la vida.',
   },
   {
     id: 2,
     emergencyId: 2,
     title: 'Quemaduras',
     summary:
-      'Una quemadura debe evaluarse seg鷑 su extensi髇, profundidad, ubicaci髇 y causa.',
+      'Una quemadura debe evaluarse seg煤n su extensi贸n, profundidad, ubicaci贸n y causa.',
     whatToDo: [
       'Alejar a la persona de la fuente de calor si es seguro hacerlo.',
       'Enfriar la zona afectada con agua corriente fresca.',
-      'Retirar objetos que puedan comprimir la zona si no est醤 adheridos.',
-      'Buscar atenci髇 m閐ica cuando la gravedad lo requiera.',
+      'Retirar objetos que puedan comprimir la zona si no est谩n adheridos.',
+      'Buscar atenci贸n m茅dica cuando la gravedad lo requiera.',
     ],
     whatNotToDo: [
       'No aplicar hielo directamente sobre la quemadura.',
       'No romper las ampollas.',
-      'No aplicar sustancias caseras sobre la lesi髇.',
+      'No aplicar sustancias caseras sobre la lesi贸n.',
     ],
     whenToCall:
-      'Busca ayuda profesional ante quemaduras extensas, profundas, el閏tricas, qu韒icas o que afecten zonas especialmente delicadas.',
+      'Busca ayuda profesional ante quemaduras extensas, profundas, el茅ctricas, qu茅micas o que afecten zonas especialmente delicadas.',
   },
 ];

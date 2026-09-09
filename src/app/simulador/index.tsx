@@ -73,7 +73,7 @@ export default function SimuladorScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
           <Text style={styles.back}>‹ Volver</Text>
         </Pressable>
 

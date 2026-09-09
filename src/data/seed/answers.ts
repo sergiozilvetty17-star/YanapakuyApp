@@ -18,7 +18,7 @@ export const answers: Answer[] = [
     correct: false,
     points: 0,
     consequence:
-      'Podrías exponerte a vehículos en movimiento o a otros peligros.',
+      'PodrÃ­as exponerte a vehÃ­culos en movimiento o a otros peligros.',
     feedback:
       'Primero debes evaluar los riesgos del entorno.',
     criticalError: true,
@@ -26,11 +26,11 @@ export const answers: Answer[] = [
   {
     id: 3,
     questionId: 1,
-    text: 'Ignorar el accidente porque alguien más podría ayudar.',
+    text: 'Ignorar el accidente porque alguien mÃ¡s podrÃ­a ayudar.',
     correct: false,
     points: 0,
     feedback:
-      'No debes ignorar una emergencia. Evalúa la situación y solicita ayuda.',
+      'No debes ignorar una emergencia. EvalÃºa la situaciÃ³n y solicita ayuda.',
     criticalError: false,
   },
 
@@ -51,7 +51,7 @@ export const answers: Answer[] = [
     correct: false,
     points: 5,
     consequence:
-      'Podrías agravar una lesión existente.',
+      'PodrÃ­as agravar una lesiÃ³n existente.',
     feedback:
       'Una persona accidentada no debe moverse innecesariamente.',
     criticalError: false,
@@ -70,7 +70,7 @@ export const answers: Answer[] = [
   {
     id: 7,
     questionId: 3,
-    text: 'Controlar el sangrado aplicando presión directa cuando sea apropiado y solicitar ayuda.',
+    text: 'Controlar el sangrado aplicando presiÃ³n directa cuando sea apropiado y solicitar ayuda.',
     correct: true,
     points: 20,
     feedback:
@@ -94,7 +94,7 @@ export const answers: Answer[] = [
     correct: false,
     points: 5,
     feedback:
-      'Un sangrado importante requiere atención inmediata y apropiada.',
+      'Un sangrado importante requiere atenciÃ³n inmediata y apropiada.',
     criticalError: false,
   },
 
@@ -119,36 +119,5 @@ export const answers: Answer[] = [
     feedback:
       'Es preferible solicitar asistencia profesional y seguir instrucciones.',
     criticalError: true,
-  },
-
-  {
-    id: 12,
-    questionId: 5,
-    text: 'Indicar la ubicación, qué ocurrió, cuántas personas están afectadas y su estado aparente.',
-    correct: true,
-    points: 20,
-    feedback:
-      'Correcto. La información clara ayuda a los servicios de emergencia a responder.',
-    criticalError: false,
-  },
-  {
-    id: 13,
-    questionId: 5,
-    text: 'Decir únicamente que hubo un accidente.',
-    correct: false,
-    points: 5,
-    feedback:
-      'La información debe ser lo más clara y completa posible.',
-    criticalError: false,
-  },
-  {
-    id: 14,
-    questionId: 5,
-    text: 'Colgar inmediatamente después de decir la dirección.',
-    correct: false,
-    points: 0,
-    feedback:
-      'Es importante seguir las instrucciones del operador y proporcionar la información solicitada.',
-    criticalError: false,
   },
 ];

@@ -5,4 +5,7 @@ export interface GuideStep {
   title: string;
   description: string;
   important: boolean;
+
+  mediaType?: 'gif' | 'image' | 'video';
+  mediaUrl?: string;
 }

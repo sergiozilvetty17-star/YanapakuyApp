@@ -1,6 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -8,164 +7,343 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { GetScenario, StartSimulation } from '@/domain/useCases';
-import { InMemoryScenarioRepository } from '@/data/repositories';
-import type { Answer, Scenario } from '@/domain/models';
-import type { SimulationEngine } from '@/features/simulador/engine';
-import { colors, spacing, typography } from '@/theme';
+import { GetScenario } from '@/domain/useCases';
+import {
+  InMemoryScenarioRepository,
+  InMemorySimulatedCallQuestionRepository,
+  InMemorySimulatedCallRepository,
+} from '@/data/repositories';
 
-const scenarioRepository = new InMemoryScenarioRepository();
-const getScenario = new GetScenario(scenarioRepository);
-const startSimulation = new StartSimulation(scenarioRepository);
+import type {
+  Answer,
+  SimulatedCallQuestion,
+} from '@/domain/models';
+
+import {
+  SimulationEngine,
+} from '@/features/simulador/engine';
+
+import {
+  colors,
+  spacing,
+  typography,
+} from '@/theme';
 
 export default function SimuladorDetalleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{
+    id: string;
+  }>();
 
   const scenarioId = Number(id);
 
-  const [scenario, setScenario] = useState<Scenario | null>(null);
-  const [engine, setEngine] = useState<SimulationEngine | null>(null);
-  const [currentAnswers, setCurrentAnswers] = useState<Answer[]>([]);
-  const [selectedAnswer, setSelectedAnswer] = useState<Answer | null>(null);
-  const [remainingTime, setRemainingTime] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [engine, setEngine] =
+    useState<SimulationEngine | null>(null);
+
+  const [stateVersion, setStateVersion] =
+    useState(0);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const scenarioRepository =
+    useMemo(
+      () => new InMemoryScenarioRepository(),
+      []
+    );
+
+  const simulatedCallRepository =
+    useMemo(
+      () =>
+        new InMemorySimulatedCallRepository(),
+      []
+    );
+
+  const simulatedCallQuestionRepository =
+    useMemo(
+      () =>
+        new InMemorySimulatedCallQuestionRepository(),
+      []
+    );
 
   useEffect(() => {
-    loadScenario();
-  }, [scenarioId]);
+    let mounted = true;
 
-  useEffect(() => {
-    if (!engine || selectedAnswer) {
-      return;
-    }
+    const loadSimulation = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    const question = engine.getCurrentQuestion();
+        const getScenario =
+          new GetScenario(
+            scenarioRepository
+          );
 
-    if (!question || question.timeLimit === undefined) {
-      setRemainingTime(null);
-      return;
-    }
+        const data =
+          await getScenario.execute(
+            scenarioId
+          );
 
-    setRemainingTime(question.timeLimit);
-
-    const interval = setInterval(() => {
-      setRemainingTime((current) => {
-        if (current === null) {
-          return null;
+        if (!data) {
+          throw new Error(
+            'No se encontró el escenario.'
+          );
         }
 
-        if (current <= 1) {
-          clearInterval(interval);
-          return 0;
+        const simulationEngine =
+          new SimulationEngine();
+
+        const simulatedCall =
+          data.scenario.requiresEmergencyCall
+            ? await simulatedCallRepository.getByScenarioId(
+                scenarioId
+              )
+            : null;
+
+        let simulatedCallQuestions: SimulatedCallQuestion[] =
+          [];
+
+        if (simulatedCall) {
+          simulatedCallQuestions =
+            await simulatedCallQuestionRepository.getByCallId(
+              simulatedCall.id
+            );
         }
 
-        return current - 1;
-      });
-    }, 1000);
+        simulationEngine.start(
+          data.scenario,
+          data.questions,
+          data.answers
+        );
 
-    return () => clearInterval(interval);
-  }, [engine, selectedAnswer]);
+        if (simulatedCall) {
+          simulationEngine.startSimulatedCall(
+            simulatedCall,
+            simulatedCallQuestions
+          );
+        }
 
-  async function loadScenario() {
-    setLoading(true);
-    setError(null);
+        if (mounted) {
+          setEngine(simulationEngine);
+          setStateVersion(
+            (value) => value + 1
+          );
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'No se pudo iniciar la simulación.'
+          );
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    if (
+      Number.isFinite(scenarioId) &&
+      scenarioId > 0
+    ) {
+      loadSimulation();
+    } else {
+      setError(
+        'El escenario seleccionado no es válido.'
+      );
+      setLoading(false);
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [
+    scenarioId,
+    scenarioRepository,
+    simulatedCallRepository,
+    simulatedCallQuestionRepository,
+  ]);
+
+  const state =
+    engine?.getState() ?? null;
+
+  const question =
+    engine?.getCurrentQuestion() ?? null;
+
+  const answers =
+    engine?.getCurrentAnswers() ?? [];
+
+  const simulatedCallState =
+    engine
+      ?.getSimulatedCallEngine()
+      .getState() ?? null;
+
+  const simulatedCallQuestion =
+    engine
+      ?.getSimulatedCallEngine()
+      .getCurrentQuestion() ?? null;
+
+  const isCallQuestion =
+    Boolean(
+      !question &&
+      state?.emergencyCallRequired === true &&
+      simulatedCallState &&
+      !simulatedCallState.completed
+    );
+
+  const currentQuestionNumber =
+    question
+      ? question.order
+      : state
+        ? state.currentQuestionIndex + 1
+        : 1;
+
+  const totalQuestions =
+    engine?.getTotalQuestions() ?? 0;
+
+  const result =
+    engine?.getResult() ?? null;
+
+  const showFinalResult =
+    Boolean(state?.completed);
+
+  const handleAnswer = (
+    answer: Answer
+  ) => {
+    if (!engine) {
+      return;
+    }
 
     try {
-      const result = await getScenario.execute(scenarioId);
+      setError(null);
 
-      if (!result) {
-        setError('No se encontró el escenario.');
+      engine.answer(answer.id);
+
+      setStateVersion(
+        (value) => value + 1
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar la respuesta.'
+      );
+    }
+  };
+
+  const handleSimulatedCallAnswer = (
+    optionId: number
+  ) => {
+    if (!engine) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      const callEngine =
+        engine.getSimulatedCallEngine();
+
+      const callState =
+        callEngine.answer(optionId);
+
+      if (callState.completed) {
+        engine.completeEmergencyCall();
+      } else {
+        callEngine.next();
+      }
+
+      setStateVersion(
+        (value) => value + 1
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar la respuesta de la llamada.'
+      );
+    }
+  };
+
+  const handleNextSimulatedCallQuestion =
+    () => {
+      if (!engine) {
         return;
       }
 
-      setScenario(result.scenario);
-    } catch {
-      setError('No se pudo cargar el escenario.');
-    } finally {
-      setLoading(false);
+      try {
+        setError(null);
+
+        const callEngine =
+          engine.getSimulatedCallEngine();
+
+        const callState =
+          callEngine.getState();
+
+        if (!callState) {
+          return;
+        }
+
+        if (callState.completed) {
+          engine.completeEmergencyCall();
+        } else {
+          callEngine.next();
+        }
+
+        setStateVersion(
+          (value) => value + 1
+        );
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'No se pudo continuar con la llamada simulada.'
+        );
+      }
+    };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/simulador');
     }
-  }
-
-  async function handleStartSimulation() {
-    setStarting(true);
-    setError(null);
-
-    try {
-      const simulation = await startSimulation.execute(scenarioId);
-
-      setEngine(simulation);
-      setCurrentAnswers(simulation.getCurrentAnswers());
-    } catch {
-      setError('No se pudo iniciar la simulación.');
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  function handleAnswer(answerId: number) {
-    if (!engine) {
-      return;
-    }
-
-    const answer = currentAnswers.find(
-      (item) => item.id === answerId
-    );
-
-    if (!answer) {
-      return;
-    }
-
-    try {
-      engine.answer(answerId);
-
-      setSelectedAnswer(answer);
-    } catch {
-      setError('No se pudo procesar la respuesta.');
-    }
-  }
-
-  function handleContinue() {
-    if (!engine) {
-      return;
-    }
-
-    setSelectedAnswer(null);
-    setEngine(engine);
-    setCurrentAnswers(engine.getCurrentAnswers());
-  }
+  };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loading}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-          />
-
+        <View style={styles.centerContainer}>
           <Text style={styles.loadingText}>
-            Preparando escenario...
+            Cargando simulación...
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (!scenario) {
+  if (error && !engine) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.center}>
+        <View style={styles.centerContainer}>
           <Text style={styles.errorTitle}>
-            Escenario no disponible
+            No se pudo iniciar
+          </Text>
+
+          <Text style={styles.errorText}>
+            {error}
           </Text>
 
           <Pressable
             style={styles.primaryButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
           >
             <Text style={styles.primaryButtonText}>
               Volver
@@ -176,280 +354,23 @@ export default function SimuladorDetalleScreen() {
     );
   }
 
-  if (engine) {
-    const question = engine.getCurrentQuestion();
-    const state = engine.getState();
-
-    if (!state) {
-      return (
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.center}>
-            <Text style={styles.errorTitle}>
-              No se pudo obtener el estado de la simulación.
-            </Text>
-
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => setEngine(null)}
-            >
-              <Text style={styles.primaryButtonText}>
-                Volver al escenario
-              </Text>
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      );
-    }
-
-    if (!question || state.completed) {
-      return (
-        <SafeAreaView style={styles.safeArea}>
-          <ScrollView
-            contentContainerStyle={styles.container}
-          >
-            <Text style={styles.title}>
-              Simulación finalizada
-            </Text>
-
-            <View style={styles.resultCard}>
-              <Text style={styles.resultLabel}>
-                Puntuación
-              </Text>
-
-              <Text style={styles.resultScore}>
-                {state.score} / {state.maxScore}
-              </Text>
-
-              <Text style={styles.resultText}>
-                Respuestas correctas: {state.correctAnswers}
-              </Text>
-
-              <Text style={styles.resultText}>
-                Respuestas incorrectas: {state.incorrectAnswers}
-              </Text>
-
-              <Text style={styles.resultText}>
-                Errores críticos: {state.criticalErrors}
-              </Text>
-
-              <Text style={styles.resultText}>
-                Tiempo: {state.elapsedTime} segundos
-              </Text>
-            </View>
-
-            <Pressable
-              style={styles.primaryButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.primaryButtonText}>
-                Volver a escenarios
-              </Text>
-            </Pressable>
-          </ScrollView>
-        </SafeAreaView>
-      );
-    }
-
+  if (!state || !engine) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
-        >
-          <Pressable onPress={() => router.back()}>
-            <Text style={styles.back}>‹ Salir</Text>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorTitle}>
+            Simulación no disponible
+          </Text>
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={handleBack}
+          >
+            <Text style={styles.primaryButtonText}>
+              Volver
+            </Text>
           </Pressable>
-
-          <View style={styles.progressHeader}>
-            <Text style={styles.progressText}>
-              Pregunta {state.currentQuestionIndex + 1}
-            </Text>
-
-            <Text style={styles.scoreText}>
-              {state.score} puntos
-            </Text>
-          </View>
-
-          <View style={styles.questionCard}>
-            {remainingTime !== null && (
-              <View
-                style={[
-                  styles.timerCard,
-                  remainingTime <= 10 && styles.timerDanger,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.timerText,
-                    remainingTime <= 10 && styles.timerTextDanger,
-                  ]}
-                >
-                  ⏱ {remainingTime} segundos
-                </Text>
-              </View>
-            )}
-
-            <Text style={styles.questionText}>
-              {question.text}
-            </Text>
-
-            {question.critical && (
-              <View style={styles.criticalBadge}>
-                <Text style={styles.criticalText}>
-                  Decisión importante
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {!selectedAnswer && (
-            <>
-              <Text style={styles.sectionTitle}>
-                Selecciona una respuesta
-              </Text>
-
-              {currentAnswers.map((answer, index) => (
-                <Pressable
-                  key={answer.id}
-                  style={({ pressed }) => [
-                    styles.answerCard,
-                    pressed && styles.answerPressed,
-                  ]}
-                  onPress={() => handleAnswer(answer.id)}
-                >
-                  <View style={styles.answerBullet}>
-                    <Text style={styles.answerBulletText}>
-                      {String.fromCharCode(65 + index)}
-                    </Text>
-                  </View>
-
-                  <Text style={styles.answerText}>
-                    {answer.text}
-                  </Text>
-                </Pressable>
-              ))}
-            </>
-          )}
-
-          {selectedAnswer && (
-            <View
-              style={[
-                styles.feedbackCard,
-                selectedAnswer.correct
-                  ? styles.feedbackCorrect
-                  : styles.feedbackIncorrect,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.feedbackTitle,
-                  selectedAnswer.correct
-                    ? styles.feedbackTitleCorrect
-                    : styles.feedbackTitleIncorrect,
-                ]}
-              >
-                {selectedAnswer.correct
-                  ? '✓ Respuesta correcta'
-                  : '✕ Respuesta incorrecta'}
-              </Text>
-
-              <Text style={styles.feedbackPoints}>
-                {selectedAnswer.points > 0
-                  ? `+${selectedAnswer.points} puntos`
-                  : '0 puntos'}
-              </Text>
-
-              <View style={styles.feedbackSection}>
-                <Text style={styles.feedbackLabel}>
-                  Retroalimentación
-                </Text>
-
-                <Text style={styles.feedbackText}>
-                  {selectedAnswer.feedback}
-                </Text>
-              </View>
-
-              {selectedAnswer.consequence && (
-                <View style={styles.consequenceCard}>
-                  <Text style={styles.consequenceLabel}>
-                    Consecuencia
-                  </Text>
-
-                  <Text style={styles.consequenceText}>
-                    {selectedAnswer.consequence}
-                  </Text>
-                </View>
-              )}
-
-              {selectedAnswer.criticalError && (
-                <View style={styles.criticalErrorCard}>
-                  <Text style={styles.criticalErrorTitle}>
-                    ⚠ Error crítico
-                  </Text>
-
-                  <Text style={styles.criticalErrorText}>
-                    Esta decisión puede finalizar la simulación debido
-                    a la gravedad del error.
-                  </Text>
-                </View>
-              )}
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.continueButton,
-                  pressed && styles.buttonPressed,
-                ]}
-                onPress={handleContinue}
-              >
-                <Text style={styles.continueButtonText}>
-                  {selectedAnswer.criticalError
-                    ? 'Ver resultado'
-                    : 'Continuar →'}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {currentAnswers.map((answer, index) => (
-            <Pressable
-              key={answer.id}
-              style={({ pressed }) => [
-                styles.answerCard,
-                pressed && styles.answerPressed,
-              ]}
-              onPress={() => handleAnswer(answer.id)}
-            >
-              <View style={styles.answerBullet}>
-                <Text style={styles.answerBulletText}>
-                  {String.fromCharCode(65 + index)}
-                </Text>
-              </View>
-
-              <Text style={styles.answerText}>
-                {answer.text}
-              </Text>
-            </Pressable>
-          ))}
-
-          {error && (
-            <View style={styles.errorCard}>
-              <Text style={styles.errorText}>
-                {error}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.simulationWarning}>
-            <Text style={styles.warningTitle}>
-              Simulación educativa
-            </Text>
-
-            <Text style={styles.warningText}>
-              Esta actividad es ficticia y no sustituye la capacitación
-              profesional en primeros auxilios.
-            </Text>
-          </View>
-        </ScrollView>
+        </View>
       </SafeAreaView>
     );
   }
@@ -457,95 +378,426 @@ export default function SimuladorDetalleScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          styles.scrollContent
+        }
       >
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Volver</Text>
-        </Pressable>
-
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>?</Text>
-          </View>
+          <Pressable
+            onPress={handleBack}
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>
+              ← Volver
+            </Text>
+          </Pressable>
 
-          <Text style={styles.title}>
-            {scenario.title}
+          <Text style={styles.headerTitle}>
+            Simulador
+          </Text>
+        </View>
+
+        <View style={styles.scenarioCard}>
+          <Text style={styles.scenarioTitle}>
+            {state.scenario.title}
           </Text>
 
-          <Text style={styles.description}>
-            {scenario.description}
+          <Text style={styles.scenarioDescription}>
+            {state.scenario.description}
           </Text>
 
-          <View style={styles.metaRow}>
+          <View style={styles.badgesRow}>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
-                {scenario.difficulty === 'facil'
-                  ? 'Fácil'
-                  : scenario.difficulty === 'medio'
-                    ? 'Medio'
-                    : 'Difícil'}
+                {state.scenario.difficulty}
               </Text>
             </View>
 
-            <Text style={styles.metaText}>
-              {Math.ceil(scenario.estimatedTime / 60)} min
-            </Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {state.scenario.estimatedTime}s
+              </Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>
-            Preparado para comenzar
-          </Text>
-
-          <Text style={styles.infoText}>
-            El escenario se ejecutará mediante el motor de simulación.
-            Deberás analizar cada situación y seleccionar una respuesta.
-          </Text>
-
-          {scenario.requiresEmergencyCall && (
-            <Text style={styles.callInfo}>
-              ☎ Este escenario incluye una llamada simulada.
-            </Text>
-          )}
-        </View>
-
         {error && (
-          <View style={styles.errorCard}>
+          <View style={styles.errorBox}>
             <Text style={styles.errorText}>
               {error}
             </Text>
           </View>
         )}
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.startButton,
-            pressed && styles.buttonPressed,
-          ]}
-          onPress={handleStartSimulation}
-          disabled={starting}
-        >
-          {starting ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Text style={styles.startButtonText}>
-              Comenzar simulación
-            </Text>
+        {!isCallQuestion &&
+          !showFinalResult && (
+            <View style={styles.progressCard}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={styles.progressTitle}
+                >
+                  Pregunta{' '}
+                  {currentQuestionNumber} de{' '}
+                  {totalQuestions}
+                </Text>
+
+                <Text style={styles.scoreText}>
+                  {state.score} pts
+                </Text>
+              </View>
+
+              <View
+                style={styles.progressTrack}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${Math.min(
+                        100,
+                        (currentQuestionNumber /
+                          Math.max(
+                            totalQuestions,
+                            1
+                          )) *
+                          100
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
           )}
-        </Pressable>
 
-        <View style={styles.warning}>
-          <Text style={styles.warningTitle}>
-            ⚠ Simulación únicamente
-          </Text>
+        {!isCallQuestion &&
+          !showFinalResult &&
+          question && (
+            <View style={styles.questionCard}>
+              <Text style={styles.questionLabel}>
+                DECISIÓN
+              </Text>
 
-          <Text style={styles.warningText}>
-            Las llamadas realizadas dentro del simulador son ficticias y
-            nunca realizan una llamada telefónica real.
-          </Text>
-        </View>
+              <Text style={styles.questionText}>
+                {question.text}
+              </Text>
+
+              <View style={styles.answersContainer}>
+                {answers.map((answer) => (
+                  <Pressable
+                    key={answer.id}
+                    style={styles.answerButton}
+                    onPress={() =>
+                      handleAnswer(answer)
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.answerButtonText
+                      }
+                    >
+                      {answer.text}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          )}
+
+        {isCallQuestion &&
+          simulatedCallState &&
+          simulatedCallQuestion && (
+            <View
+              style={styles.callCard}
+            >
+              <View
+                style={styles.callHeader}
+              >
+                <Text
+                  style={styles.callIcon}
+                >
+                  ☎
+                </Text>
+
+                <View
+                  style={
+                    styles.callHeaderText
+                  }
+                >
+                  <Text
+                    style={styles.callTitle}
+                  >
+                    Llamada simulada
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.callOperator
+                    }
+                  >
+                    {simulatedCallState.call
+                      .operatorName}
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={
+                  styles.operatorMessage
+                }
+              >
+                <Text
+                  style={
+                    styles.operatorLabel
+                  }
+                >
+                  OPERADOR
+                </Text>
+
+                <Text
+                  style={
+                    styles.operatorText
+                  }
+                >
+                  {
+                    simulatedCallState.call
+                      .openingMessage
+                  }
+                </Text>
+              </View>
+
+              <View
+                style={styles.callProgress}
+              >
+                <Text
+                  style={
+                    styles.callProgressText
+                  }
+                >
+                  Pregunta{' '}
+                  {simulatedCallQuestion.order}{' '}
+                  de{' '}
+                  {
+                    simulatedCallState
+                      .questions.length
+                  }
+                </Text>
+
+                <Text
+                  style={styles.callScore}
+                >
+                  {simulatedCallState.score} pts
+                </Text>
+              </View>
+
+              <Text
+                style={styles.callQuestion}
+              >
+                {simulatedCallQuestion.prompt}
+              </Text>
+
+              <View
+                style={styles.answersContainer}
+              >
+                {simulatedCallQuestion.options.map(
+                  (option) => {
+                    const selected =
+                      simulatedCallState.selectedOptionId ===
+                      option.id;
+
+                    return (
+                      <Pressable
+                        key={option.id}
+                        style={[
+                          styles.callOption,
+                          selected &&
+                            styles.callOptionSelected,
+                        ]}
+                        onPress={() =>
+                          handleSimulatedCallAnswer(
+                            option.id
+                          )
+                        }
+                        disabled={
+                          simulatedCallState.selectedOptionId !==
+                          null
+                        }
+                      >
+                        <Text
+                          style={[
+                            styles.callOptionText,
+                            selected &&
+                              styles.callOptionTextSelected,
+                          ]}
+                        >
+                          {option.text}
+                        </Text>
+                      </Pressable>
+                    );
+                  }
+                )}
+              </View>
+
+
+
+
+            </View>
+          )}
+
+        {showFinalResult &&
+          result && (
+            <View
+              style={styles.resultCard}
+            >
+              <Text
+                style={styles.resultTitle}
+              >
+                Simulación completada
+              </Text>
+
+              <Text
+                style={styles.resultScore}
+              >
+                {result.score} / {result.maxScore}
+              </Text>
+
+              <Text
+                style={styles.resultPercentage}
+              >
+                {result.maxScore > 0
+                  ? Math.round(
+                      (result.score /
+                        result.maxScore) *
+                        100
+                    )
+                  : 0}
+                %
+              </Text>
+
+              <View
+                style={styles.resultStats}
+              >
+                <View
+                  style={styles.stat}
+                >
+                  <Text
+                    style={styles.statValue}
+                  >
+                    {result.correctAnswers}
+                  </Text>
+
+                  <Text
+                    style={styles.statLabel}
+                  >
+                    Correctas
+                  </Text>
+                </View>
+
+                <View
+                  style={styles.stat}
+                >
+                  <Text
+                    style={styles.statValue}
+                  >
+                    {result.incorrectAnswers}
+                  </Text>
+
+                  <Text
+                    style={styles.statLabel}
+                  >
+                    Incorrectas
+                  </Text>
+                </View>
+
+                <View
+                  style={styles.stat}
+                >
+                  <Text
+                    style={styles.statValue}
+                  >
+                    {result.criticalErrors}
+                  </Text>
+
+                  <Text
+                    style={styles.statLabel}
+                  >
+                    Errores críticos
+                  </Text>
+                </View>
+              </View>
+
+              <View
+                style={styles.resultMessage}
+              >
+                <Text
+                  style={
+                    styles.resultMessageText
+                  }
+                >
+                  {result.criticalErrors > 0
+                    ? 'La simulación terminó debido a una decisión crítica.'
+                    : result.score /
+                        Math.max(
+                          result.maxScore,
+                          1
+                        ) >=
+                      0.9
+                      ? 'Excelente desempeño. Demostraste buenas decisiones durante la emergencia.'
+                      : result.score /
+                          Math.max(
+                            result.maxScore,
+                            1
+                          ) >=
+                        0.7
+                        ? 'Buen desempeño. Puedes seguir practicando para mejorar.'
+                        : result.score /
+                            Math.max(
+                              result.maxScore,
+                              1
+                            ) >=
+                          0.5
+                          ? 'Desempeño regular. Conviene reforzar algunos conceptos.'
+                          : 'Necesitas reforzar los conocimientos básicos de actuación ante emergencias.'}
+                </Text>
+              </View>
+
+              <Pressable
+                style={styles.primaryButton}
+                onPress={() =>
+                  router.replace(
+                    '/simulador'
+                  )
+                }
+              >
+                <Text
+                  style={
+                    styles.primaryButtonText
+                  }
+                >
+                  Volver a escenarios
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+        {!showFinalResult && (
+          <View style={styles.warningCard}>
+            <Text
+              style={styles.warningTitle}
+            >
+              Aviso educativo
+            </Text>
+
+            <Text
+              style={styles.warningText}
+            >
+              Esta simulación tiene fines
+              educativos. Ante una emergencia
+              real, solicita ayuda profesional y
+              sigue las instrucciones de los
+              servicios de emergencia.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -557,464 +809,417 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  container: {
-    padding: spacing.lg,
+  scrollContent: {
+    padding: spacing.md,
     paddingBottom: spacing.xxl,
   },
 
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  loadingText: {
-    marginTop: spacing.md,
-    color: colors.textSecondary,
-  },
-
-  center: {
+  centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.xl,
   },
 
-  back: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '700',
-    marginBottom: spacing.lg,
+  loadingText: {
+    ...typography.body,
+    color: colors.textSecondary,
   },
 
-  header: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
+  errorTitle: {
+    ...typography.sectionTitle,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+
+  errorText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  errorBox: {
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  iconContainer: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#FECACA',
+    borderRadius: 12,
+    padding: spacing.md,
     marginBottom: spacing.md,
   },
 
-  icon: {
-    fontSize: 30,
-    fontWeight: '900',
-    color: colors.white,
+  header: {
+    marginBottom: spacing.md,
   },
 
-  title: {
+  backButton: {
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+
+  backButtonText: {
+    ...typography.button,
+    color: colors.primary,
+  },
+
+  headerTitle: {
     ...typography.title,
     color: colors.text,
   },
 
-  description: {
-    marginTop: spacing.sm,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
+  scenarioCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
-  metaRow: {
+  scenarioTitle: {
+    ...typography.sectionTitle,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
+
+  scenarioDescription: {
+    ...typography.body,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+
+  badgesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
 
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
 
   badgeText: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-
-  metaText: {
-    marginLeft: spacing.md,
-    fontSize: 13,
+    ...typography.small,
     color: colors.textSecondary,
+    textTransform: 'capitalize',
   },
 
-  infoCard: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: 18,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.secondary,
-  },
-
-  infoText: {
-    marginTop: spacing.sm,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.text,
-  },
-
-  callInfo: {
-    marginTop: spacing.md,
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: colors.secondary,
-  },
-
-  startButton: {
-    marginTop: spacing.xl,
-    backgroundColor: colors.primary,
+  progressCard: {
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  buttonPressed: {
-    opacity: 0.75,
-  },
-
-  startButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '800',
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
 
-  progressText: {
-    fontSize: 14,
-    fontWeight: '800',
+  progressTitle: {
+    ...typography.body,
+    fontWeight: '700',
     color: colors.text,
   },
 
   scoreText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.secondary,
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+
+  progressTrack: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+
+  progressFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: 999,
   },
 
   questionCard: {
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
 
-  timerCard: {
-    alignSelf: 'flex-start',
-    marginBottom: spacing.md,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
-  },
-
-  timerDanger: {
-    backgroundColor: '#FEE2E2',
-  },
-
-  timerText: {
-    fontSize: 13,
+  questionLabel: {
+    ...typography.small,
+    color: colors.primary,
     fontWeight: '800',
-    color: '#92400E',
-  },
-
-  timerTextDanger: {
-    color: colors.danger,
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
   },
 
   questionText: {
-    fontSize: 19,
-    lineHeight: 28,
-    fontWeight: '800',
-    color: colors.text,
-  },
-
-  criticalBadge: {
-    alignSelf: 'flex-start',
-    marginTop: spacing.md,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-
-  criticalText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-
-  sectionTitle: {
     ...typography.sectionTitle,
     color: colors.text,
-    marginTop: spacing.xl,
-    marginBottom: spacing.md,
+    lineHeight: 27,
+    marginBottom: spacing.lg,
   },
 
-  answerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+  answersContainer: {
+    gap: spacing.sm,
   },
 
-  answerPressed: {
-    opacity: 0.7,
-  },
-
-  answerBullet: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-
-  answerBulletText: {
-    color: colors.white,
-    fontWeight: '800',
-  },
-
-  answerText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.text,
-  },
-
-  feedbackCard: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-
-  feedbackCorrect: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#BBF7D0',
-  },
-
-  feedbackIncorrect: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-  },
-
-  feedbackTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-  },
-
-  feedbackTitleCorrect: {
-    color: colors.success,
-  },
-
-  feedbackTitleIncorrect: {
-    color: colors.danger,
-  },
-
-  feedbackPoints: {
-    marginTop: spacing.sm,
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.text,
-  },
-
-  feedbackSection: {
-    marginTop: spacing.lg,
-  },
-
-  feedbackLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-  },
-
-  feedbackText: {
-    marginTop: spacing.xs,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.text,
-  },
-
-  consequenceCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: 14,
-    backgroundColor: '#FFFBEB',
-  },
-
-  consequenceLabel: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.warning,
-  },
-
-  consequenceText: {
-    marginTop: spacing.xs,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.text,
-  },
-
-  criticalErrorCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: 14,
-    backgroundColor: '#7F1D1D',
-  },
-
-  criticalErrorTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: colors.white,
-  },
-
-  criticalErrorText: {
-    marginTop: spacing.xs,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.white,
-  },
-
-  continueButton: {
-    marginTop: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  continueButtonText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-
-  resultCard: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  resultLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-
-  resultScore: {
-    marginTop: spacing.sm,
-    fontSize: 34,
-    fontWeight: '900',
-    color: colors.primary,
-  },
-
-  resultText: {
-    marginTop: spacing.sm,
-    fontSize: 14,
-    color: colors.text,
-  },
-
-  errorCard: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: 14,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-
-  errorText: {
-    color: colors.danger,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-  },
-
-  warning: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-
-  simulationWarning: {
-    marginTop: spacing.xl,
-    padding: spacing.md,
-    borderRadius: 16,
+  answerButton: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
   },
 
-  warningTitle: {
-    fontSize: 15,
+  answerButtonText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 21,
+  },
+
+  callCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.secondary,
+  },
+
+  callHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+
+  callIcon: {
+    fontSize: 30,
+    marginRight: spacing.sm,
+  },
+
+  callHeaderText: {
+    flex: 1,
+  },
+
+  callTitle: {
+    ...typography.sectionTitle,
+    color: colors.text,
+  },
+
+  callOperator: {
+    ...typography.small,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  operatorMessage: {
+    backgroundColor: '#F0FDFA',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+
+  operatorLabel: {
+    ...typography.small,
     fontWeight: '800',
-    color: colors.warning,
+    color: colors.secondary,
+    letterSpacing: 1,
+    marginBottom: 4,
   },
 
-  warningText: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 19,
+  operatorText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 22,
+  },
+
+  callProgress: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+
+  callProgressText: {
+    ...typography.small,
     color: colors.textSecondary,
   },
 
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+  callScore: {
+    ...typography.small,
+    fontWeight: '700',
+    color: colors.secondary,
+  },
+
+  callQuestion: {
+    ...typography.sectionTitle,
     color: colors.text,
-    textAlign: 'center',
+    lineHeight: 27,
+    marginBottom: spacing.lg,
+  },
+
+  callOption: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: spacing.md,
+  },
+
+  callOptionSelected: {
+    borderColor: colors.secondary,
+    backgroundColor: '#F0FDFA',
+  },
+
+  callOptionText: {
+    ...typography.body,
+    color: colors.text,
+    lineHeight: 21,
+  },
+
+  callOptionTextSelected: {
+    fontWeight: '700',
+  },
+
+  feedbackBox: {
+    marginTop: spacing.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  feedbackTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+
+  feedbackText: {
+    ...typography.small,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 
   primaryButton: {
-    marginTop: spacing.xl,
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
+    borderRadius: 12,
     paddingVertical: spacing.md,
-    borderRadius: 14,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    marginTop: spacing.md,
   },
 
   primaryButtonText: {
+    ...typography.button,
     color: colors.white,
-    fontSize: 15,
+  },
+
+  resultCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+
+  resultTitle: {
+    ...typography.sectionTitle,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+
+  resultScore: {
+    fontSize: 42,
     fontWeight: '800',
+    color: colors.primary,
+  },
+
+  resultPercentage: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.secondary,
+    marginTop: 4,
+  },
+
+  resultStats: {
+    flexDirection: 'row',
+    width: '100%',
+    marginTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.lg,
+  },
+
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+
+  statValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+  },
+
+  statLabel: {
+    ...typography.small,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  resultMessage: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: spacing.md,
+    marginTop: spacing.lg,
+  },
+
+  resultMessageText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+
+  warningCard: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+
+  warningTitle: {
+    ...typography.body,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+
+  warningText: {
+    ...typography.small,
+    color: '#92400E',
+    lineHeight: 20,
   },
 });

@@ -1,4 +1,4 @@
-﻿import { router } from 'expo-router';
+import { router } from 'expo-router';
 import {
   SafeAreaView,
   ScrollView,
@@ -17,7 +17,7 @@ export default function EmergenciasScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
           <Text style={styles.back}>‹ Volver</Text>
         </Pressable>
 

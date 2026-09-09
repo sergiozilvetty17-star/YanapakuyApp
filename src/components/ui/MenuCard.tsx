@@ -49,7 +49,7 @@ export function MenuCard({
         </Text>
       </View>
 
-      <Text style={styles.arrow}>›</Text>
+      <Text style={styles.arrow}>â†’</Text>
     </Pressable>
   );
 }
