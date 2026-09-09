@@ -3,10 +3,10 @@ import type { EmergencyService } from '@/domain/models';
 export const emergencyServices: EmergencyService[] = [
   {
     id: 1,
-    name: 'Ambulancia',
+    name: 'Emergencias de salud',
     description:
-      'Servicio destinado a atender y trasladar personas que requieren asistencia médica de emergencia.',
-    phoneNumber: '',
+      'Atención de emergencias y urgencias de salud. Utiliza este servicio cuando una persona necesite asistencia médica urgente.',
+    phoneNumber: '168',
     type: 'ambulancia',
     active: true,
   },
@@ -14,8 +14,8 @@ export const emergencyServices: EmergencyService[] = [
     id: 2,
     name: 'Policía',
     description:
-      'Servicio de seguridad y atención de situaciones que requieren intervención policial.',
-    phoneNumber: '',
+      'Solicita asistencia policial ante situaciones que requieran intervención de la Policía Boliviana.',
+    phoneNumber: '110',
     type: 'policia',
     active: true,
   },
@@ -23,8 +23,8 @@ export const emergencyServices: EmergencyService[] = [
     id: 3,
     name: 'Bomberos',
     description:
-      'Servicio especializado en incendios, rescates y otras situaciones de emergencia.',
-    phoneNumber: '',
+      'Solicita asistencia ante incendios, rescates y otras situaciones que requieran intervención de bomberos.',
+    phoneNumber: '119',
     type: 'bomberos',
     active: true,
   },

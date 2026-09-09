@@ -1,163 +1,543 @@
-import { router } from 'expo-router';
+import React from 'react';
 import {
-  ActivityIndicator,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'expo-router';
 
+import {
+  AlertIcon,
+  BackIcon,
+  CheckIcon,
+  GuideIcon,
+  MedicalIcon,
+} from '@/components/ui/icons';
 import { GetEmergencies } from '@/domain/useCases';
 import { InMemoryEmergencyRepository } from '@/data/repositories';
-import type { Emergency } from '@/domain/models';
-import { colors, spacing, typography } from '@/theme';
+import { colors } from '@/theme/colors';
+import { spacing } from '@/theme/spacing';
 
-const emergencyRepository = new InMemoryEmergencyRepository();
-const getEmergencies = new GetEmergencies(emergencyRepository);
+const emergencyRepository =
+  new InMemoryEmergencyRepository();
+
+const getEmergencies = new GetEmergencies(
+  emergencyRepository
+);
+
+const riskLabels: Record<string, string> = {
+  bajo: 'Riesgo bajo',
+  medio: 'Riesgo medio',
+  alto: 'Riesgo alto',
+  critico: 'Riesgo crítico',
+};
+
+const riskDescriptions: Record<string, string> = {
+  bajo: 'Requiere atención y observación.',
+  medio: 'Puede requerir evaluación profesional.',
+  alto: 'Requiere atención profesional.',
+  critico: 'Actúa rápidamente y solicita ayuda.',
+};
+
+function getRiskColor(riskLevel: string) {
+  switch (riskLevel) {
+    case 'critico':
+      return colors.danger;
+    case 'alto':
+      return colors.warning;
+    case 'medio':
+      return '#CA8A04';
+    default:
+      return colors.success;
+  }
+}
+
+function getRiskBackground(riskLevel: string) {
+  switch (riskLevel) {
+    case 'critico':
+      return '#FEF2F2';
+    case 'alto':
+      return '#FFF7ED';
+    case 'medio':
+      return '#FEFCE8';
+    default:
+      return '#F0FDF4';
+  }
+}
+
+function EmergencyCategoryIcon({
+  riskLevel,
+}: {
+  riskLevel: string;
+}) {
+  const color = getRiskColor(riskLevel);
+
+  return (
+    <MedicalIcon
+      size={29}
+      color={color}
+      strokeWidth={2}
+    />
+  );
+}
 
 export default function GuiaScreen() {
-  const [emergencies, setEmergencies] = useState<Emergency[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const { width } = useWindowDimensions();
 
-  useEffect(() => {
+  const [emergencies, setEmergencies] = React.useState<
+    Awaited<ReturnType<typeof getEmergencies.execute>>
+  >([]);
+
+  const [selectedFilter, setSelectedFilter] =
+    React.useState<string>('todas');
+
+  const [loading, setLoading] =
+    React.useState(true);
+
+  const isSmall = width < 360;
+  const isLarge = width >= 600;
+
+  const titleSize = isSmall ? 25 : isLarge ? 32 : 28;
+  const bodySize = isSmall ? 14 : isLarge ? 18 : 16;
+
+  React.useEffect(() => {
+    const loadEmergencies = async () => {
+      try {
+        const result =
+          await getEmergencies.execute();
+
+        setEmergencies(
+          result.filter(
+            (emergency) => emergency.active
+          )
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadEmergencies();
   }, []);
 
-  async function loadEmergencies() {
-    try {
-      const data = await getEmergencies.execute();
-      setEmergencies(data);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const filters = [
+    { key: 'todas', label: 'Todas' },
+    { key: 'critico', label: 'Críticas' },
+    { key: 'alto', label: 'Altas' },
+    { key: 'medio', label: 'Medias' },
+    { key: 'bajo', label: 'Bajas' },
+  ];
 
-  function getRiskLabel(riskLevel: Emergency['riskLevel']) {
-    switch (riskLevel) {
-      case 'bajo':
-        return 'Riesgo bajo';
-      case 'medio':
-        return 'Riesgo medio';
-      case 'alto':
-        return 'Riesgo alto';
-      case 'critico':
-        return 'Riesgo crítico';
-    }
-  }
+  const filteredEmergencies =
+    selectedFilter === 'todas'
+      ? emergencies
+      : emergencies.filter(
+          (emergency) =>
+            emergency.riskLevel ===
+            selectedFilter
+        );
 
-  function getRiskColor(riskLevel: Emergency['riskLevel']) {
-    switch (riskLevel) {
-      case 'bajo':
-        return colors.success;
-      case 'medio':
-        return colors.warning;
-      case 'alto':
-        return '#EA580C';
-      case 'critico':
-        return colors.danger;
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
     }
-  }
+
+    router.replace('/');
+  };
+
+  const handleEmergencyPress = (
+    id: number
+  ) => {
+    router.push({
+      pathname: '/guia/[id]',
+      params: {
+        id: id.toString(),
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace('/')}>
-          <Text style={styles.back}>‹ Volver</Text>
-        </Pressable>
+        {/* BACK */}
 
-        <Text style={styles.title}>Guía de emergencias</Text>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBack}
+          activeOpacity={0.8}
+        >
+          <BackIcon
+            size={21}
+            color={colors.primary}
+            strokeWidth={2.2}
+          />
 
-        <Text style={styles.subtitle}>
-          Selecciona una situación para conocer qué hacer, qué evitar y cuándo
-          solicitar ayuda profesional.
-        </Text>
+          <Text style={styles.backText}>
+            Volver
+          </Text>
+        </TouchableOpacity>
 
-        {loading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>
-              Cargando emergencias...
-            </Text>
-          </View>
-        ) : emergencies.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>
-              No hay emergencias disponibles
-            </Text>
+        {/* HEADER */}
 
-            <Text style={styles.emptyText}>
-              No se encontraron contenidos de guía disponibles.
-            </Text>
-          </View>
-        ) : (
-          emergencies
-            .filter((emergency) => emergency.active)
-            .map((emergency) => (
-              <Pressable
-                key={emergency.id}
-                style={({ pressed }) => [
-                  styles.card,
-                  pressed && styles.cardPressed,
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <View style={styles.headerIcon}>
+              <GuideIcon
+                size={29}
+                color={colors.white}
+                strokeWidth={2}
+              />
+            </View>
+
+            <View style={styles.headerText}>
+              <Text
+                style={[
+                  styles.title,
+                  { fontSize: titleSize },
                 ]}
-                onPress={() => router.push({ pathname: '/guia/[id]', params: { id: emergency.id.toString() } })}
               >
-                <View style={styles.cardHeader}>
-                  <View style={styles.iconContainer}>
-                    <Text style={styles.icon}>+</Text>
-                  </View>
+                Guía de emergencias
+              </Text>
 
-                  <View style={styles.cardHeaderText}>
-                    <Text style={styles.cardTitle}>
-                      {emergency.name}
-                    </Text>
+              <Text
+                style={[
+                  styles.subtitle,
+                  { fontSize: bodySize },
+                ]}
+              >
+                Aprende a reconocer una emergencia y
+                conoce los primeros pasos que puedes tomar.
+              </Text>
+            </View>
+          </View>
+        </View>
 
-                    <Text style={styles.category}>
-                      {emergency.category}
-                    </Text>
-                  </View>
-                </View>
+        {/* EDUCATIONAL NOTICE */}
 
-                <Text style={styles.description}>
-                  {emergency.description}
+        <View style={styles.educationalNotice}>
+          <View style={styles.educationalIcon}>
+            <MedicalIcon
+              size={23}
+              color={colors.primary}
+              strokeWidth={2}
+            />
+          </View>
+
+          <View style={styles.educationalContent}>
+            <Text style={styles.educationalTitle}>
+              Información para aprender
+            </Text>
+
+            <Text
+              style={[
+                styles.educationalText,
+                { fontSize: bodySize - 1 },
+              ]}
+            >
+              Revisa cada emergencia para conocer qué
+              hacer, qué evitar y cuándo solicitar ayuda
+              profesional.
+            </Text>
+          </View>
+        </View>
+
+        {/* FILTERS */}
+
+        <View style={styles.filterHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>
+              Situaciones de emergencia
+            </Text>
+
+            <Text style={styles.sectionSubtitle}>
+              Filtra por nivel de riesgo.
+            </Text>
+          </View>
+
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>
+              {filteredEmergencies.length}
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={
+            styles.filtersContent
+          }
+        >
+          {filters.map((filter) => {
+            const selected =
+              selectedFilter === filter.key;
+
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.filterButton,
+                  selected &&
+                    styles.filterButtonSelected,
+                ]}
+                onPress={() =>
+                  setSelectedFilter(filter.key)
+                }
+                activeOpacity={0.8}
+              >
+                {selected && (
+                  <CheckIcon
+                    size={15}
+                    color={colors.white}
+                    strokeWidth={2.5}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.filterText,
+                    selected &&
+                      styles.filterTextSelected,
+                  ]}
+                >
+                  {filter.label}
                 </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-                <View style={styles.cardFooter}>
-                  <View
-                    style={[
-                      styles.riskBadge,
-                      {
-                        backgroundColor: getRiskColor(emergency.riskLevel),
-                      },
-                    ]}
-                  >
-                    <Text style={styles.riskText}>
-                      {getRiskLabel(emergency.riskLevel)}
-                    </Text>
-                  </View>
+        {/* LOADING */}
 
-                  <Text style={styles.arrow}>›</Text>
-                </View>
-              </Pressable>
-            ))
+        {loading && (
+          <View style={styles.stateCard}>
+            <View style={styles.stateIcon}>
+              <GuideIcon
+                size={25}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text style={styles.stateTitle}>
+              Cargando guía
+            </Text>
+
+            <Text style={styles.stateText}>
+              Preparando el contenido disponible.
+            </Text>
+          </View>
         )}
 
-        <View style={styles.warning}>
-          <Text style={styles.warningTitle}>
-            ⚠ Importante
-          </Text>
+        {/* EMPTY */}
 
-          <Text style={styles.warningText}>
-            Esta guía tiene fines educativos. En una emergencia real,
-            prioriza la seguridad de la escena y solicita asistencia
-            profesional cuando sea necesario.
-          </Text>
+        {!loading &&
+          filteredEmergencies.length === 0 && (
+            <View style={styles.stateCard}>
+              <View style={styles.stateIcon}>
+                <AlertIcon
+                  size={25}
+                  color={colors.warning}
+                />
+              </View>
+
+              <Text style={styles.stateTitle}>
+                No hay emergencias
+              </Text>
+
+              <Text style={styles.stateText}>
+                No encontramos situaciones para el filtro
+                seleccionado.
+              </Text>
+            </View>
+          )}
+
+        {/* EMERGENCY CARDS */}
+
+        {!loading &&
+          filteredEmergencies.map(
+            (emergency) => {
+              const riskColor =
+                getRiskColor(
+                  emergency.riskLevel
+                );
+
+              const riskBackground =
+                getRiskBackground(
+                  emergency.riskLevel
+                );
+
+              return (
+                <TouchableOpacity
+                  key={emergency.id}
+                  style={styles.emergencyCard}
+                  onPress={() =>
+                    handleEmergencyPress(
+                      emergency.id
+                    )
+                  }
+                  activeOpacity={0.84}
+                >
+                  <View
+                    style={styles.cardTop}
+                  >
+                    <View
+                      style={[
+                        styles.emergencyIcon,
+                        {
+                          backgroundColor:
+                            riskBackground,
+                        },
+                      ]}
+                    >
+                      <EmergencyCategoryIcon
+                        riskLevel={
+                          emergency.riskLevel
+                        }
+                      />
+                    </View>
+
+                    <View
+                      style={
+                        styles.cardTitleContainer
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.category
+                        }
+                      >
+                        {emergency.category}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.emergencyName
+                        }
+                      >
+                        {emergency.name}
+                      </Text>
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.arrow,
+                        {
+                          color:
+                            riskColor,
+                        },
+                      ]}
+                    >
+                      ›
+                    </Text>
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.description,
+                      { fontSize: bodySize },
+                    ]}
+                  >
+                    {emergency.description}
+                  </Text>
+
+                  <View
+                    style={
+                      styles.riskContainer
+                    }
+                  >
+                    <View
+                      style={[
+                        styles.riskBadge,
+                        {
+                          backgroundColor:
+                            riskBackground,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.riskDot,
+                          {
+                            backgroundColor:
+                              riskColor,
+                          },
+                        ]}
+                      />
+
+                      <Text
+                        style={[
+                          styles.riskText,
+                          {
+                            color:
+                              riskColor,
+                          },
+                        ]}
+                      >
+                        {
+                          riskLabels[
+                            emergency.riskLevel
+                          ]
+                        }
+                      </Text>
+                    </View>
+
+                    <Text
+                      style={
+                        styles.riskDescription
+                      }
+                    >
+                      {
+                        riskDescriptions[
+                          emergency.riskLevel
+                        ]
+                      }
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }
+          )}
+
+        {/* FOOTER */}
+
+        <View style={styles.footerNotice}>
+          <View style={styles.footerIcon}>
+            <AlertIcon
+              size={22}
+              color={colors.warning}
+              strokeWidth={2}
+            />
+          </View>
+
+          <View style={styles.footerContent}>
+            <Text style={styles.footerTitle}>
+              Importante
+            </Text>
+
+            <Text
+              style={[
+                styles.footerText,
+                { fontSize: bodySize - 1 },
+              ]}
+            >
+              La información de esta guía tiene fines
+              educativos y no sustituye la capacitación
+              ni la atención de profesionales de emergencia.
+            </Text>
+          </View>
         </View>
+
+        <Text style={styles.footer}>
+          Aprende. Practica. Actúa.
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,169 +549,347 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
 
-  container: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+  content: {
+    padding: spacing.md,
+    paddingBottom: spacing.xl,
   },
 
-  back: {
-    fontSize: 16,
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.sm,
+    marginBottom: spacing.md,
+  },
+
+  backText: {
     color: colors.primary,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '800',
+    marginLeft: 4,
+  },
+
+  header: {
     marginBottom: spacing.lg,
   },
 
-  title: {
-    ...typography.title,
-    color: colors.text,
-  },
-
-  subtitle: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.textSecondary,
-  },
-
-  loading: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xxl,
-  },
-
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-
-  empty: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: spacing.xl,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.text,
-  },
-
-  emptyText: {
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textSecondary,
-  },
-
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  cardPressed: {
-    opacity: 0.75,
-    transform: [{ scale: 0.99 }],
-  },
-
-  cardHeader: {
+  headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+  headerIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: spacing.md,
+    flexShrink: 0,
   },
 
-  icon: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.white,
-  },
-
-  cardHeaderText: {
+  headerText: {
     flex: 1,
-    marginLeft: spacing.md,
+    minWidth: 0,
   },
 
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+  title: {
     color: colors.text,
+    fontWeight: '900',
+    lineHeight: 34,
+    marginBottom: spacing.xs,
+    flexShrink: 1,
   },
 
-  category: {
-    marginTop: 3,
-    fontSize: 13,
+  subtitle: {
     color: colors.textSecondary,
+    lineHeight: 23,
+    flexShrink: 1,
   },
 
-  description: {
-    marginTop: spacing.md,
-    fontSize: 14,
+  educationalNotice: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 20,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+
+  educationalIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    flexShrink: 0,
+  },
+
+  educationalContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  educationalTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+
+  educationalText: {
+    color: colors.textSecondary,
     lineHeight: 21,
-    color: colors.textSecondary,
+    flexShrink: 1,
   },
 
-  cardFooter: {
-    marginTop: spacing.md,
+  filterHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: spacing.md,
   },
 
-  riskBadge: {
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: '900',
   },
 
-  riskText: {
-    fontSize: 12,
-    fontWeight: '800',
+  sectionSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginTop: 3,
+  },
+
+  countBadge: {
+    minWidth: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
+    marginLeft: spacing.sm,
+  },
+
+  countText: {
     color: colors.white,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+
+  filtersContent: {
+    paddingBottom: spacing.md,
+  },
+
+  filterButton: {
+    minHeight: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 13,
+    marginRight: spacing.sm,
+  },
+
+  filterButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+
+  filterText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+
+  filterTextSelected: {
+    color: colors.white,
+  },
+
+  stateCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    padding: spacing.xl,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+
+  stateIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 17,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+
+  stateTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+
+  stateText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  emergencyCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 22,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  emergencyIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    flexShrink: 0,
+  },
+
+  cardTitleContainer: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  category: {
+    color: colors.textLight,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 3,
+    flexShrink: 1,
+  },
+
+  emergencyName: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+    lineHeight: 23,
+    flexShrink: 1,
   },
 
   arrow: {
     fontSize: 30,
-    lineHeight: 30,
-    color: colors.primary,
-    fontWeight: '300',
+    fontWeight: '400',
+    marginLeft: spacing.sm,
+    flexShrink: 0,
   },
 
-  warning: {
+  description: {
+    color: colors.textSecondary,
+    lineHeight: 23,
     marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: '#FFF7ED',
+    marginBottom: spacing.md,
+    flexShrink: 1,
+  },
+
+  riskContainer: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+
+  riskBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 9,
+  },
+
+  riskDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+
+  riskText: {
+    fontSize: 11,
+    fontWeight: '900',
+  },
+
+  riskDescription: {
+    color: colors.textLight,
+    fontSize: 11,
+    marginTop: 5,
+  },
+
+  footerNotice: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFBEB',
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: '#FDE68A',
+    borderRadius: 19,
+    padding: spacing.md,
+    marginTop: spacing.md,
   },
 
-  warningTitle: {
+  footerIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+    flexShrink: 0,
+  },
+
+  footerContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  footerTitle: {
+    color: colors.text,
     fontSize: 15,
-    fontWeight: '700',
-    color: colors.warning,
+    fontWeight: '900',
+    marginBottom: 4,
   },
 
-  warningText: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#7C2D12',
+  footerText: {
+    color: colors.textSecondary,
+    lineHeight: 21,
+    flexShrink: 1,
+  },
+
+  footer: {
+    textAlign: 'center',
+    color: colors.textLight,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: spacing.xl,
   },
 });

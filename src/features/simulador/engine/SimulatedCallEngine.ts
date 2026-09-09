@@ -3,6 +3,8 @@ import type {
   SimulatedCallQuestion,
 } from '@/domain/models';
 
+import { shuffleArray } from '@/utils/shuffle';
+
 export interface SimulatedCallState {
   call: SimulatedCall;
   questions: SimulatedCallQuestion[];

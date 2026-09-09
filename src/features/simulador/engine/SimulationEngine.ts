@@ -9,6 +9,7 @@ import type {
 import { SimulationEvaluator } from './SimulationEvaluator';
 import type { SimulationState } from './SimulationState';
 import { SimulatedCallEngine } from './SimulatedCallEngine';
+import { shuffleArray } from '@/utils/shuffle';
 
 export class SimulationEngine {
   private state: SimulationState | null = null;
@@ -30,7 +31,7 @@ export class SimulationEngine {
     answers: Answer[]
   ): void {
     this.questions = questions;
-    this.answers = answers;
+    this.answers = shuffleArray(answers);
 
     const maxScore =
       this.evaluator.calculateMaxScore(

@@ -1,8 +1,14 @@
 import type { ImageSourcePropType } from 'react-native';
 
-export const guideMedia: Record<number, ImageSourcePropType> = {
-  1: require('../../assets/guides/accidente/VerificarEscena.png'),
-  2: require('../../assets/guides/accidente/ProtegerLugar.png'),
-  3: require('../../assets/guides/accidente/EvaluarPersona.png'),
-  4: require('../../assets/guides/accidente/LlamarProfesionales.png'),
+export const guideMedia: Record<
+  string,
+  ImageSourcePropType
+> = {
+  'accidente.verificar-escena': require('../../assets/guides/accidente/VerificarEscena.png'),
+
+  'accidente.proteger-lugar': require('../../assets/guides/accidente/ProtegerLugar.png'),
+
+  'accidente.evaluar-persona': require('../../assets/guides/accidente/EvaluarPersona.png'),
+
+  'accidente.llamar-profesionales': require('../../assets/guides/accidente/LlamarProfesionales.png'),
 };

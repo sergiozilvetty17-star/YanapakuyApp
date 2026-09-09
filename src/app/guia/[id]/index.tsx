@@ -1,635 +1,729 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
-  Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { GetEmergencyGuide } from '@/domain/useCases';
 import { InMemoryGuideRepository } from '@/data/repositories';
-import type { Guide, GuideStep } from '@/domain/models';
-import { colors, spacing, typography } from '@/theme';
 import { guideMedia } from '@/data/guideMedia';
+import { colors, spacing, typography } from '@/theme';
+import type { Guide, GuideStep } from '@/domain/models';
 
-const guideRepository = new InMemoryGuideRepository();
-const getEmergencyGuide = new GetEmergencyGuide(guideRepository);
+export default function GuideDetailScreen() {
+  const router = useRouter();
 
-export default function GuiaDetalleScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { width } = useWindowDimensions();
 
-  const emergencyId = Number(id);
+  const { id } = useLocalSearchParams<{
+    id: string;
+  }>();
 
   const [guide, setGuide] = useState<Guide | null>(null);
   const [steps, setSteps] = useState<GuideStep[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+
+  /*
+   * ==========================================================
+   * TIPOGRAFÍA RESPONSIVE
+   * ==========================================================
+   *
+   * Ajustamos ligeramente los tamaños según el ancho
+   * disponible del dispositivo.
+   */
+
+  const isSmallScreen = width < 360;
+  const isLargeScreen = width >= 600;
+
+  const titleSize = isSmallScreen
+    ? 25
+    : isLargeScreen
+      ? 32
+      : 28;
+
+  const sectionTitleSize = isSmallScreen
+    ? 19
+    : isLargeScreen
+      ? 23
+      : 21;
+
+  const bodySize = isSmallScreen
+    ? 15
+    : isLargeScreen
+      ? 18
+      : 16;
+
+  const bodyLineHeight = isSmallScreen
+    ? 21
+    : isLargeScreen
+      ? 26
+      : 23;
+
+  const stepTitleSize = isSmallScreen
+    ? 17
+    : isLargeScreen
+      ? 21
+      : 19;
 
   useEffect(() => {
-    loadGuide();
-  }, [emergencyId]);
+    const loadGuide = async () => {
+      try {
+        setLoading(true);
 
-  async function loadGuide() {
-    setLoading(true);
-    setNotFound(false);
+        const repository =
+          new InMemoryGuideRepository();
 
-    try {
-      const result = await getEmergencyGuide.execute(emergencyId);
+        const useCase =
+          new GetEmergencyGuide(repository);
 
-      if (!result) {
-        setNotFound(true);
-        return;
+        const result =
+          await useCase.execute(Number(id));
+
+        if (result) {
+          setGuide(result.guide);
+
+          setSteps(
+            [...result.steps].sort(
+              (a, b) => a.order - b.order
+            )
+          );
+        }
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setGuide(result.guide);
-      setSteps(result.steps);
-    } finally {
-      setLoading(false);
+    loadGuide();
+  }, [id]);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/guia');
     }
-  }
+  };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.loading}>
-          <ActivityIndicator
-            size="large"
-            color={colors.primary}
-          />
-
-          <Text style={styles.loadingText}>
-            Cargando guía...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.center}>
+        <Text style={styles.loadingText}>
+          Cargando guía...
+        </Text>
+      </View>
     );
   }
 
-  if (notFound || !guide) {
+  if (!guide) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundIcon}>
-            !
-          </Text>
+      <View style={styles.center}>
+        <Text style={styles.errorTitle}>
+          Guía no encontrada
+        </Text>
 
-          <Text style={styles.notFoundTitle}>
-            Guía no encontrada
-          </Text>
-
-          <Text style={styles.notFoundText}>
-            No existe una guía disponible para esta emergencia.
-          </Text>
-
-          <Pressable
-            style={styles.primaryButton}
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace('/')
-            }
-          >
-            <Text style={styles.primaryButtonText}>
-              Volver
-            </Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+        <Text
+          style={styles.backLink}
+          onPress={handleBack}
+        >
+          Volver a la guía
+        </Text>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* BOTÓN VOLVER */}
-        <Pressable
-          onPress={() =>
-            router.canGoBack()
-              ? router.back()
-              : router.replace('/')
-          }
+        {/* =====================================================
+            VOLVER
+            ===================================================== */}
+
+        <Text
+          style={styles.backLink}
+          onPress={handleBack}
         >
-          <Text style={styles.back}>
-            ‹ Volver
-          </Text>
-        </Pressable>
+          ← Volver
+        </Text>
 
-        {/* ENCABEZADO */}
+        {/* =====================================================
+            ENCABEZADO
+            ===================================================== */}
+
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Text style={styles.icon}>
-              +
-            </Text>
-          </View>
-
-          <Text style={styles.title}>
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: titleSize,
+              },
+            ]}
+          >
             {guide.title}
           </Text>
 
-          <Text style={styles.summary}>
+          <Text
+            style={[
+              styles.summary,
+              {
+                fontSize: bodySize,
+                lineHeight: bodyLineHeight,
+              },
+            ]}
+          >
             {guide.summary}
           </Text>
         </View>
 
-        {/* QUÉ HACER */}
+        {/* =====================================================
+            SEÑALES DE ALERTA
+            ===================================================== */}
+
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Qué hacer
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            🚨 Señales de alerta
           </Text>
 
-          {guide.whatToDo.map((item, index) => (
-            <View
-              key={`todo-${index}`}
-              style={styles.item}
-            >
-              <View style={styles.number}>
-                <Text style={styles.numberText}>
-                  {index + 1}
-                </Text>
-              </View>
-
-              <Text style={styles.itemText}>
-                {item}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* QUÉ NO HACER */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Qué NO hacer
-          </Text>
-
-          {guide.whatNotToDo.map((item, index) => (
-            <View
-              key={`not-${index}`}
-              style={styles.notItem}
-            >
-              <Text style={styles.notIcon}>
-                ×
-              </Text>
-
-              <Text style={styles.itemText}>
-                {item}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* CUÁNDO LLAMAR */}
-        <View style={styles.callCard}>
-          <Text style={styles.callTitle}>
-            ☎ Cuándo llamar
-          </Text>
-
-          <Text style={styles.callText}>
-            {guide.whenToCall}
-          </Text>
-        </View>
-
-        {/* PASOS */}
-        {steps.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              Pasos de la guía
-            </Text>
-
-            {steps
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map((step) => (
+          <View style={styles.alertCard}>
+            {guide.warningSigns.map(
+              (warning, index) => (
                 <View
-                  key={step.id}
-                  style={styles.stepCard}
+                  key={`${warning}-${index}`}
+                  style={styles.bulletRow}
                 >
-                  {/* CABECERA DEL PASO */}
-                  <View style={styles.stepHeader}>
-                    <View style={styles.stepNumber}>
-                      <Text style={styles.stepNumberText}>
-                        {step.order}
-                      </Text>
-                    </View>
+                  <Text style={styles.alertBullet}>
+                    !
+                  </Text>
 
-                    <Text style={styles.stepTitle}>
-                      {step.title}
+                  <Text
+                    style={[
+                      styles.bulletText,
+                      {
+                        fontSize: bodySize,
+                        lineHeight: bodyLineHeight,
+                      },
+                    ]}
+                  >
+                    {warning}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
+
+        {/* =====================================================
+            QUÉ HACER
+            ===================================================== */}
+
+        <View style={styles.section}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            ✅ Qué hacer
+          </Text>
+
+          <View style={styles.infoCard}>
+            {guide.whatToDo.map(
+              (item, index) => (
+                <View
+                  key={`${item}-${index}`}
+                  style={styles.bulletRow}
+                >
+                  <Text style={styles.number}>
+                    {index + 1}
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.bulletText,
+                      {
+                        fontSize: bodySize,
+                        lineHeight: bodyLineHeight,
+                      },
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
+
+        {/* =====================================================
+            QUÉ NO HACER
+            ===================================================== */}
+
+        <View style={styles.section}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            ❌ Qué NO hacer
+          </Text>
+
+          <View style={styles.dangerCard}>
+            {guide.whatNotToDo.map(
+              (item, index) => (
+                <View
+                  key={`${item}-${index}`}
+                  style={styles.bulletRow}
+                >
+                  <Text style={styles.dangerBullet}>
+                    ×
+                  </Text>
+
+                  <Text
+                    style={[
+                      styles.bulletText,
+                      {
+                        fontSize: bodySize,
+                        lineHeight: bodyLineHeight,
+                      },
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
+
+        {/* =====================================================
+            CUÁNDO LLAMAR
+            ===================================================== */}
+
+        <View style={styles.section}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            📞 Cuándo llamar a emergencias
+          </Text>
+
+          <View style={styles.callCard}>
+            <Text
+              style={[
+                styles.callText,
+                {
+                  fontSize: bodySize,
+                  lineHeight: bodyLineHeight,
+                },
+              ]}
+            >
+              {guide.whenToCall}
+            </Text>
+          </View>
+        </View>
+
+        {/* =====================================================
+            PASOS DE ACTUACIÓN
+            ===================================================== */}
+
+        <View style={styles.section}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            🩺 Pasos de actuación
+          </Text>
+
+          {steps.map((step) => {
+            const media =
+              step.mediaKey
+                ? guideMedia[step.mediaKey]
+                : undefined;
+
+            return (
+              <View
+                key={step.id}
+                style={styles.stepCard}
+              >
+                {/* =================================================
+                    CABECERA DEL PASO
+                    ================================================= */}
+
+                <View style={styles.stepHeader}>
+                  <View style={styles.stepNumber}>
+                    <Text style={styles.stepNumberText}>
+                      {step.order}
                     </Text>
                   </View>
 
-                  {/* IMAGEN DEL PASO */}
-                  {guideMedia[step.id] && (
-                    <View style={styles.imageContainer}>
-                      <Image
-                        source={guideMedia[step.id]}
-                        style={styles.stepImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                  )}
+                  <View
+                    style={styles.stepTitleContainer}
+                  >
+                    <Text
+                      style={[
+                        styles.stepTitle,
+                        {
+                          fontSize: stepTitleSize,
+                        },
+                      ]}
+                    >
+                      {step.title}
+                    </Text>
 
-                  {/* DESCRIPCIÓN */}
-                  <Text style={styles.stepDescription}>
-                    {step.description}
-                  </Text>
-
-                  {/* IMPORTANTE */}
-                  {step.important && (
-                    <View style={styles.importantBadge}>
-                      <Text style={styles.importantIcon}>
-                        !
-                      </Text>
-
-                      <Text style={styles.importantText}>
-                        Importante
-                      </Text>
-                    </View>
-                  )}
+                    {step.important && (
+                      <View
+                        style={styles.importantBadge}
+                      >
+                        <Text
+                          style={
+                            styles.importantBadgeText
+                          }
+                        >
+                          IMPORTANTE
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              ))}
-          </View>
-        )}
 
-        {/* ADVERTENCIA FINAL */}
-        <View style={styles.warning}>
-          <Text style={styles.warningTitle}>
-            ⚠ Importante
+                {/* =================================================
+                    IMAGEN
+                    ================================================= */}
+
+                {media && (
+                  <Image
+                    source={media}
+                    style={styles.stepImage}
+                    resizeMode="cover"
+                  />
+                )}
+
+                {/* =================================================
+                    DESCRIPCIÓN
+                    ================================================= */}
+
+                <Text
+                  style={[
+                    styles.stepDescription,
+                    {
+                      fontSize: bodySize,
+                      lineHeight: bodyLineHeight,
+                    },
+                  ]}
+                >
+                  {step.description}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* =====================================================
+            ADVERTENCIA EDUCATIVA
+            ===================================================== */}
+
+        <View style={styles.warningCard}>
+          <Text
+            style={[
+              styles.warningTitle,
+              {
+                fontSize: sectionTitleSize,
+              },
+            ]}
+          >
+            ⚠️ Importante
           </Text>
 
-          <Text style={styles.warningText}>
-            Esta información tiene fines educativos y no sustituye la
-            atención de profesionales de emergencia. Ante una emergencia
-            real, solicita ayuda profesional.
+          <Text
+            style={[
+              styles.warningText,
+              {
+                fontSize: bodySize,
+                lineHeight: bodyLineHeight,
+              },
+            ]}
+          >
+            Esta guía tiene fines educativos y no
+            sustituye la capacitación en primeros
+            auxilios ni la evaluación de un profesional.
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: colors.background,
   },
 
-  container: {
+  content: {
     padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.xl,
   },
 
-  loading: {
+  center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.background,
+    padding: spacing.lg,
   },
 
   loadingText: {
-    marginTop: spacing.md,
-    fontSize: 14,
+    ...typography.body,
     color: colors.textSecondary,
   },
 
-  back: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '700',
-    marginBottom: spacing.lg,
-  },
-
-  /* =========================
-     ENCABEZADO
-     ========================= */
-
-  header: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  iconContainer: {
-    width: 54,
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+  errorTitle: {
+    ...typography.sectionTitle,
+    color: colors.text,
     marginBottom: spacing.md,
   },
 
-  icon: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: colors.white,
+  backLink: {
+    ...typography.button,
+    color: colors.primary,
+    marginBottom: spacing.lg,
+  },
+
+  header: {
+    marginBottom: spacing.xl,
   },
 
   title: {
     ...typography.title,
     color: colors.text,
+    marginBottom: spacing.md,
+    flexShrink: 1,
   },
 
   summary: {
-    marginTop: spacing.sm,
-    fontSize: 15,
-    lineHeight: 22,
+    ...typography.body,
     color: colors.textSecondary,
+    flexShrink: 1,
   },
 
-  /* =========================
-     SECCIONES
-     ========================= */
-
   section: {
-    marginTop: spacing.lg,
+    marginBottom: spacing.xl,
   },
 
   sectionTitle: {
     ...typography.sectionTitle,
     color: colors.text,
     marginBottom: spacing.md,
+    flexShrink: 1,
   },
 
-  /* =========================
-     QUÉ HACER
-     ========================= */
-
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+  alertCard: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    borderRadius: 16,
     padding: spacing.md,
-    marginBottom: spacing.sm,
+  },
+
+  infoCard: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+
+  dangerCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 16,
+    padding: spacing.md,
+  },
+
+  callCard: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    padding: spacing.lg,
+  },
+
+  callText: {
+    ...typography.body,
+    color: colors.white,
+    flexShrink: 1,
+  },
+
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+
+  alertBullet: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    color: colors.white,
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '700',
+    marginRight: spacing.sm,
   },
 
   number: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-
-  numberText: {
+    backgroundColor: colors.secondary,
     color: colors.white,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-
-  itemText: {
-    flex: 1,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.text,
-  },
-
-  /* =========================
-     QUÉ NO HACER
-     ========================= */
-
-  notItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  notIcon: {
-    fontSize: 24,
-    lineHeight: 21,
-    color: colors.danger,
-    fontWeight: '800',
+    textAlign: 'center',
+    lineHeight: 28,
+    fontWeight: '700',
     marginRight: spacing.sm,
   },
 
-  /* =========================
-     CUÁNDO LLAMAR
-     ========================= */
-
-  callCard: {
-    marginTop: spacing.lg,
-    backgroundColor: '#ECFDF5',
-    borderRadius: 18,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
+  dangerBullet: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.danger,
+    color: colors.white,
+    textAlign: 'center',
+    lineHeight: 22,
+    fontSize: 18,
+    fontWeight: '700',
+    marginRight: spacing.sm,
   },
 
-  callTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.secondary,
-  },
-
-  callText: {
-    marginTop: spacing.sm,
-    fontSize: 14,
-    lineHeight: 21,
+  bulletText: {
+    ...typography.body,
+    flex: 1,
     color: colors.text,
+    flexShrink: 1,
   },
-
-  /* =========================
-     TARJETA DE PASO
-     ========================= */
 
   stepCard: {
     backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: 18,
     padding: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
   },
 
   stepHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
   },
 
   stepNumber: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.secondary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm,
+    marginRight: spacing.md,
+    flexShrink: 0,
   },
 
   stepNumberText: {
     color: colors.white,
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '800',
+  },
+
+  stepTitleContainer: {
+    flex: 1,
+    minWidth: 0,
   },
 
   stepTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '800',
+    ...typography.sectionTitle,
     color: colors.text,
+    marginBottom: spacing.xs,
+    flexShrink: 1,
   },
-
-  /* =========================
-     IMAGEN
-     ========================= */
-
-  imageContainer: {
-    width: '100%',
-    height: 230,
-    marginTop: spacing.md,
-    borderRadius: 14,
-    overflow: 'hidden',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  stepImage: {
-    width: '100%',
-    height: '100%',
-  },
-
-  /* =========================
-     DESCRIPCIÓN
-     ========================= */
-
-  stepDescription: {
-    marginTop: spacing.md,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textSecondary,
-  },
-
-  /* =========================
-     IMPORTANTE
-     ========================= */
 
   importantBadge: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.md,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
     backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
   },
 
-  importantIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginRight: 6,
-    backgroundColor: '#F59E0B',
-    color: colors.white,
+  importantBadgeText: {
     fontSize: 11,
-    fontWeight: '900',
-  },
-
-  importantText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#92400E',
-  },
-
-  /* =========================
-     ADVERTENCIA
-     ========================= */
-
-  warning: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FED7AA',
-  },
-
-  warningTitle: {
-    fontSize: 15,
     fontWeight: '800',
     color: colors.warning,
   },
 
-  warningText: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#7C2D12',
-  },
-
-  /* =========================
-     NO ENCONTRADO
-     ========================= */
-
-  notFound: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-
-  notFoundIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.danger,
-    color: colors.white,
-    textAlign: 'center',
-    lineHeight: 64,
-    fontSize: 34,
-    fontWeight: '800',
-  },
-
-  notFoundTitle: {
-    marginTop: spacing.lg,
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    textAlign: 'center',
-  },
-
-  notFoundText: {
+  stepImage: {
+    width: '75%',
+    height: "75%",
+    aspectRatio: 1,
+    alignSelf: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.background,
     marginTop: spacing.sm,
-    fontSize: 15,
-    lineHeight: 22,
+    marginBottom: spacing.sm,
+  },
+
+  stepDescription: {
+    ...typography.body,
     color: colors.textSecondary,
-    textAlign: 'center',
+    flexShrink: 1,
   },
 
-  primaryButton: {
-    marginTop: spacing.xl,
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 14,
+  warningCard: {
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginTop: spacing.md,
   },
 
-  primaryButtonText: {
-    color: colors.white,
-    fontSize: 15,
-    fontWeight: '800',
+  warningTitle: {
+    ...typography.sectionTitle,
+    color: colors.warning,
+    marginBottom: spacing.sm,
+    flexShrink: 1,
+  },
+
+  warningText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    flexShrink: 1,
   },
 });

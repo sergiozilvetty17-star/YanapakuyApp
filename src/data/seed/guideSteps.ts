@@ -1,163 +1,183 @@
 import type { GuideStep } from '@/domain/models';
 
 export const guideSteps: GuideStep[] = [
-  // ==============================
+  // ============================================================
   // ACCIDENTE DE TRÁNSITO
-  // ==============================
+  // ============================================================
+
   {
     id: 1,
     guideId: 1,
     order: 1,
-    title: 'Verifica la seguridad de la escena',
+    title: 'Verificar la escena',
     description:
-      'Antes de acercarte, observa si existen vehículos en movimiento, fuego, humo, cables u otros peligros que puedan ponerte en riesgo.',
+      'Antes de acercarte, comprueba que el lugar sea seguro para ti y para las personas afectadas. Identifica riesgos como vehículos en movimiento, fuego, humo, cables eléctricos u otros peligros.',
     important: true,
+    mediaKey: 'accidente.verificar-escena',
   },
+
   {
     id: 2,
     guideId: 1,
     order: 2,
-    title: 'Protege el lugar',
+    title: 'Proteger el lugar',
     description:
-      'Si es posible hacerlo sin exponerte al peligro, señaliza o solicita ayuda para mantener segura la zona.',
+      'Si es posible hacerlo sin exponerte al peligro, ayuda a evitar nuevos accidentes y mantén a las personas alejadas de la zona de riesgo.',
     important: true,
+    mediaKey: 'accidente.proteger-lugar',
   },
+
   {
     id: 3,
     guideId: 1,
     order: 3,
-    title: 'Evalúa a la persona',
+    title: 'Evaluar a la persona',
     description:
-      'Comprueba si responde y observa su estado general sin realizar movimientos innecesarios.',
+      'Observa el estado de la persona afectada. Comprueba si responde y presta atención a su respiración, sangrado visible y otras señales importantes. Evita moverla innecesariamente.',
     important: true,
+    mediaKey: 'accidente.evaluar-persona',
   },
+
   {
     id: 4,
     guideId: 1,
     order: 4,
-    title: 'Solicita ayuda profesional',
+    title: 'Llamar a profesionales',
     description:
-      'Cuando la situación lo requiera, solicita asistencia profesional y proporciona información clara sobre lo ocurrido.',
+      'Solicita asistencia profesional cuando existan lesiones graves, pérdida de conciencia, dificultad respiratoria, sangrado importante u otras señales de peligro.',
     important: true,
+    mediaKey: 'accidente.llamar-profesionales',
   },
 
-  // ==============================
+  // ============================================================
   // QUEMADURA
-  // ==============================
+  // ============================================================
+
   {
     id: 5,
     guideId: 2,
     order: 1,
-    title: 'Aleja a la persona de la fuente',
+    title: 'Alejar de la fuente',
     description:
-      'Elimina la exposición a la fuente de calor únicamente si puedes hacerlo de manera segura.',
+      'Si es seguro hacerlo, aleja a la persona de la fuente que está provocando la quemadura.',
     important: true,
   },
+
   {
     id: 6,
     guideId: 2,
     order: 2,
-    title: 'Enfría la zona afectada',
+    title: 'Enfriar la zona',
     description:
-      'En una quemadura térmica, utiliza agua corriente fresca para ayudar a enfriar la zona afectada.',
+      'Enfría la zona afectada con agua corriente fresca durante varios minutos.',
     important: true,
   },
+
   {
     id: 7,
     guideId: 2,
     order: 3,
-    title: 'Protege la lesión',
+    title: 'Proteger la lesión',
     description:
-      'Mantén la zona protegida y evita manipular innecesariamente la piel lesionada.',
+      'Protege la zona afectada y evita manipular innecesariamente la lesión.',
     important: false,
   },
+
   {
     id: 8,
     guideId: 2,
     order: 4,
-    title: 'Busca atención profesional cuando corresponda',
+    title: 'Buscar atención profesional',
     description:
-      'Las quemaduras extensas, profundas o ubicadas en zonas delicadas requieren valoración profesional.',
+      'Determina si la extensión, profundidad, ubicación o causa de la quemadura requiere atención profesional.',
     important: true,
   },
 
-  // ==============================
+  // ============================================================
   // ATRAGANTAMIENTO
-  // ==============================
+  // ============================================================
+
   {
     id: 9,
     guideId: 3,
     order: 1,
-    title: 'Evalúa la situación',
+    title: 'Evaluar la situación',
     description:
-      'Determina si la persona puede hablar, respirar o toser y observa si presenta signos de obstrucción grave.',
+      'Determina si la persona puede hablar, toser o respirar y observa si presenta signos de una obstrucción grave de la vía aérea.',
     important: true,
   },
+
   {
     id: 10,
     guideId: 3,
     order: 2,
-    title: 'Solicita ayuda',
+    title: 'Solicitar ayuda',
     description:
-      'Ante una obstrucción grave, solicita asistencia profesional y sigue las indicaciones correspondientes.',
+      'Pide ayuda y solicita asistencia profesional cuando la situación sea grave o la persona presente dificultad importante para respirar.',
     important: true,
   },
+
   {
     id: 11,
     guideId: 3,
     order: 3,
-    title: 'Actúa según el estado de la persona',
+    title: 'Actuar según el estado',
     description:
-      'Las acciones de primeros auxilios dependen de si la persona puede toser, respirar o responder.',
+      'Aplica las medidas de primeros auxilios apropiadas según el estado de la persona y tus conocimientos.',
     important: true,
   },
+
   {
     id: 12,
     guideId: 3,
     order: 4,
-    title: 'Continúa evaluando',
+    title: 'Continuar evaluando',
     description:
-      'Observa continuamente el estado de la persona y solicita asistencia profesional si la situación empeora.',
+      'Observa continuamente a la persona y actúa ante cualquier cambio en su estado.',
     important: true,
   },
 
-  // ==============================
+  // ============================================================
   // DESMAYO
-  // ==============================
+  // ============================================================
+
   {
     id: 13,
     guideId: 4,
     order: 1,
-    title: 'Comprueba si responde',
+    title: 'Comprobar la respuesta',
     description:
-      'Observa si la persona responde a estímulos y comprueba su estado general.',
+      'Comprueba si la persona responde y observa su estado general.',
     important: true,
   },
+
   {
     id: 14,
     guideId: 4,
     order: 2,
-    title: 'Protege a la persona',
+    title: 'Proteger a la persona',
     description:
-      'Evita que se golpee y mantén despejada el área alrededor.',
+      'Evita que la persona sufra nuevos golpes o quede expuesta a otros peligros.',
     important: true,
   },
+
   {
     id: 15,
     guideId: 4,
     order: 3,
-    title: 'Observa su recuperación',
+    title: 'Observar la recuperación',
     description:
-      'Supervisa su estado y comprueba si recupera la respuesta normalmente.',
-    important: false,
+      'Permanece atento a la respiración, respuesta y evolución de la persona mientras se recupera.',
+    important: true,
   },
+
   {
     id: 16,
     guideId: 4,
     order: 4,
-    title: 'Solicita ayuda si es necesario',
+    title: 'Buscar ayuda si es necesario',
     description:
-      'Si no recupera la respuesta, presenta lesiones o aparecen otros signos preocupantes, solicita asistencia profesional.',
+      'Solicita ayuda profesional si la persona no se recupera adecuadamente o presenta señales de alarma.',
     important: true,
   },
 ];
